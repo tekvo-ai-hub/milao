@@ -1,13 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mic, History, TrendingUp, Smartphone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User } from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
 import RecordingHistory from '@/components/RecordingHistory';
+import Auth from '@/components/Auth';
 import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RecordingData {
   id: string;
@@ -23,12 +27,32 @@ interface RecordingData {
 }
 
 const Index = () => {
+  const { user, session, loading, signOut } = useAuth();
   const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisResult | null>(null);
   const [currentDuration, setCurrentDuration] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recordings, setRecordings] = useState<RecordingData[]>([]);
   const [activeTab, setActiveTab] = useState('record');
   const { toast } = useToast();
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mb-4 inline-block">
+            <Mic className="w-8 h-8 text-white" />
+          </div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth component if user is not signed in
+  if (!user || !session) {
+    return <Auth />;
+  }
 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsAnalyzing(true);
@@ -37,7 +61,36 @@ const Index = () => {
       setCurrentAnalysis(analysis);
       setCurrentDuration(duration);
       
-      // Save to history
+      // Save to Supabase database
+      const { error } = await supabase
+        .from('speech_recordings')
+        .insert({
+          user_id: user.id,
+          title: `Recording ${new Date().toLocaleDateString()}`,
+          duration,
+          overall_score: analysis.overall_score,
+          clarity_score: analysis.clarity_score,
+          pace: analysis.pace_analysis.words_per_minute,
+          filler_words_count: analysis.filler_words.count,
+          primary_tone: analysis.tone_analysis.primary_tone,
+          analysis_data: analysis as any
+        });
+
+      if (error) {
+        console.error('Error saving recording:', error);
+        toast({
+          title: "Save Failed",
+          description: "Recording analyzed but couldn't save to database.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Analysis Complete!",
+          description: `Your speech scored ${analysis.overall_score}/100`,
+        });
+      }
+      
+      // Create local recording for immediate use
       const newRecording: RecordingData = {
         id: Date.now().toString(),
         date: new Date().toISOString(),
@@ -53,11 +106,6 @@ const Index = () => {
       
       setRecordings(prev => [newRecording, ...prev]);
       setActiveTab('analysis');
-      
-      toast({
-        title: "Analysis Complete!",
-        description: `Your speech scored ${analysis.overall_score}/100`,
-      });
       
     } catch (error) {
       toast({
@@ -99,15 +147,32 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Header */}
+        {/* Header with user info */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full">
-              <Smartphone className="w-8 h-8 text-white" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full">
+                <Smartphone className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Speech AI Coach
+              </h1>
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Speech AI Coach
-            </h1>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 text-gray-600">
+                <User className="w-4 h-4" />
+                <span className="text-sm">{user.email}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={signOut}
+                className="flex items-center space-x-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </Button>
+            </div>
           </div>
           <p className="text-gray-600 text-lg">
             Record your speech and get instant AI-powered feedback to improve your communication skills

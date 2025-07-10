@@ -14,7 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      speech_recordings: {
+        Row: {
+          analysis_data: Json | null
+          audio_url: string | null
+          clarity_score: number | null
+          created_at: string
+          duration: number
+          filler_words_count: number | null
+          id: string
+          overall_score: number | null
+          pace: number | null
+          primary_tone: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_data?: Json | null
+          audio_url?: string | null
+          clarity_score?: number | null
+          created_at?: string
+          duration: number
+          filler_words_count?: number | null
+          id?: string
+          overall_score?: number | null
+          pace?: number | null
+          primary_tone?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_data?: Json | null
+          audio_url?: string | null
+          clarity_score?: number | null
+          created_at?: string
+          duration?: number
+          filler_words_count?: number | null
+          id?: string
+          overall_score?: number | null
+          pace?: number | null
+          primary_tone?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
