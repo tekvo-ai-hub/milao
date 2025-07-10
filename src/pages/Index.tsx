@@ -33,7 +33,65 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recordings, setRecordings] = useState<RecordingData[]>([]);
   const [activeTab, setActiveTab] = useState('record');
+  const [loadingRecordings, setLoadingRecordings] = useState(false);
   const { toast } = useToast();
+
+  // Fetch recordings when user is authenticated
+  useEffect(() => {
+    if (user) {
+      fetchRecordings();
+    } else {
+      setRecordings([]);
+    }
+  }, [user]);
+
+  const fetchRecordings = async () => {
+    if (!user) return;
+    
+    setLoadingRecordings(true);
+    try {
+      const { data, error } = await supabase
+        .from('speech_recordings')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching recordings:', error);
+        toast({
+          title: "Error loading recordings",
+          description: "Failed to load your recording history.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
+        const formattedRecordings: RecordingData[] = data.map(record => ({
+          id: record.id,
+          date: record.created_at,
+          duration: record.duration,
+          overallScore: record.overall_score || 0,
+          clarityScore: record.clarity_score || 0,
+          pace: record.pace || 0,
+          fillerWords: record.filler_words_count || 0,
+          primaryTone: record.primary_tone || 'neutral',
+          analysis: (record.analysis_data as unknown) as AnalysisResult,
+          audioBlob: new Blob() // Empty blob since we don't store audio files yet
+        }));
+        setRecordings(formattedRecordings);
+      }
+    } catch (error) {
+      console.error('Error fetching recordings:', error);
+      toast({
+        title: "Error loading recordings",
+        description: "Failed to load your recording history.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingRecordings(false);
+    }
+  };
 
   // Show loading state while checking auth
   if (loading) {
@@ -84,27 +142,14 @@ const Index = () => {
           variant: "destructive",
         });
       } else {
+        // Refresh recordings from database to stay in sync
+        fetchRecordings();
         toast({
           title: "Analysis Complete!",
           description: `Your speech scored ${analysis.overall_score}/100`,
         });
       }
       
-      // Create local recording for immediate use
-      const newRecording: RecordingData = {
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
-        duration,
-        overallScore: analysis.overall_score,
-        clarityScore: analysis.clarity_score,
-        pace: analysis.pace_analysis.words_per_minute,
-        fillerWords: analysis.filler_words.count,
-        primaryTone: analysis.tone_analysis.primary_tone,
-        analysis,
-        audioBlob
-      };
-      
-      setRecordings(prev => [newRecording, ...prev]);
       setActiveTab('analysis');
       
     } catch (error) {
@@ -127,12 +172,39 @@ const Index = () => {
     }
   };
 
-  const handleDeleteRecording = (id: string) => {
-    setRecordings(prev => prev.filter(r => r.id !== id));
-    toast({
-      title: "Recording Deleted",
-      description: "The recording has been removed from your history.",
-    });
+  const handleDeleteRecording = async (id: string) => {
+    try {
+      // Only delete from database if it's a real database record (not a temporary one)
+      if (id.length > 10) { // Database UUIDs are longer than our timestamp IDs
+        const { error } = await supabase
+          .from('speech_recordings')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          toast({
+            title: "Delete Failed",
+            description: "Failed to delete recording from database.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      setRecordings(prev => prev.filter(r => r.id !== id));
+      toast({
+        title: "Recording Deleted",
+        description: "The recording has been removed from your history.",
+      });
+    } catch (error) {
+      console.error('Error deleting recording:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete recording.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewAnalysis = (id: string) => {
