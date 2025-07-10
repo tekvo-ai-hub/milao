@@ -2,6 +2,30 @@
 // Note: This is a mock implementation for demonstration purposes
 // In a real app, you would integrate with OpenAI's Whisper API or similar service
 
+export interface WordImprovement {
+  original: string;
+  suggestions: string[];
+  context: string;
+}
+
+export interface PhraseAlternative {
+  original: string;
+  alternatives: string[];
+  improvement: string;
+}
+
+export interface VocabularyEnhancement {
+  category: string;
+  suggestions: string[];
+  usage: string;
+}
+
+export interface AISuggestions {
+  wordImprovements: WordImprovement[];
+  phraseAlternatives: PhraseAlternative[];
+  vocabularyEnhancement: VocabularyEnhancement[];
+}
+
 export interface AnalysisResult {
   overall_score: number;
   clarity_score: number;
@@ -21,6 +45,8 @@ export interface AnalysisResult {
   };
   suggestions: string[];
   strengths: string[];
+  ai_suggestions?: AISuggestions;
+  transcript?: string;
 }
 
 export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<AnalysisResult> => {
@@ -40,10 +66,16 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   
   const clarityScore = Math.floor(Math.random() * 30) + 70;
   const overallScore = Math.floor((clarityScore + Math.min(100, Math.max(60, 150 - Math.abs(wpm - 150) * 2))) / 2);
+  const primaryTone = tones[Math.floor(Math.random() * tones.length)];
+  const fillerWords = ['um', 'uh', 'like', 'you know'].slice(0, fillerCount);
+  
+  // Mock transcript for demo
+  const mockTranscript = "I think that, um, the project is going really well and, uh, we should consider implementing these new features. Like, it would be good to get feedback from users about what they want to see next.";
   
   const mockResult: AnalysisResult = {
     overall_score: overallScore,
     clarity_score: clarityScore,
+    transcript: mockTranscript,
     pace_analysis: {
       words_per_minute: wpm,
       assessment: assessments[Math.floor(Math.random() * assessments.length)]
@@ -51,10 +83,10 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
     filler_words: {
       count: fillerCount,
       percentage: `${fillerPercentage}%`,
-      examples: ['um', 'uh', 'like', 'you know'].slice(0, fillerCount)
+      examples: fillerWords
     },
     tone_analysis: {
-      primary_tone: tones[Math.floor(Math.random() * tones.length)],
+      primary_tone: primaryTone,
       confidence_level: 'High',
       emotions: emotions.slice(0, 3)
     },
@@ -69,6 +101,27 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
       'Natural conversational tone'
     ].slice(0, Math.floor(Math.random() * 3) + 1)
   };
+  
+  // Get AI-powered suggestions
+  try {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data, error } = await supabase.functions.invoke('generate-speech-suggestions', {
+      body: {
+        transcript: mockTranscript,
+        overallScore,
+        clarityScore,
+        fillerWords,
+        primaryTone
+      }
+    });
+    
+    if (!error && data) {
+      mockResult.ai_suggestions = data;
+    }
+  } catch (error) {
+    console.warn('Failed to get AI suggestions:', error);
+    // Continue without AI suggestions
+  }
   
   return mockResult;
 };
