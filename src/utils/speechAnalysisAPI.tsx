@@ -2,87 +2,16 @@
 // Note: This is a mock implementation for demonstration purposes
 // In a real app, you would integrate with OpenAI's Whisper API or similar service
 
-export interface WordImprovement {
-  original: string;
-  suggestions: string[];
-  context: string;
-}
+export type {
+  WordImprovement,
+  PhraseAlternative,
+  VocabularyEnhancement,
+  ContentEvaluation,
+  AISuggestions,
+  AnalysisResult
+} from '@/types/speechAnalysis';
 
-export interface PhraseAlternative {
-  original: string;
-  alternatives: string[];
-  improvement: string;
-}
-
-export interface VocabularyEnhancement {
-  category: string;
-  suggestions: string[];
-  usage: string;
-}
-
-export interface ContentEvaluation {
-  mainPoint: {
-    identified: string;
-    clarity: number;
-    feedback: string;
-  };
-  argumentStructure: {
-    hasStructure: boolean;
-    structure: string;
-    effectiveness: number;
-    suggestions: string;
-  };
-  evidenceAndExamples: {
-    hasEvidence: boolean;
-    evidenceQuality: number;
-    evidenceTypes: string[];
-    suggestions: string;
-  };
-  persuasiveness: {
-    pointProven: boolean;
-    persuasionScore: number;
-    strengths: string[];
-    weaknesses: string[];
-    improvements: string;
-  };
-  starAnalysis: {
-    situation: string;
-    task: string;
-    action: string;
-    result: string;
-    overallStarScore: number;
-  };
-}
-
-export interface AISuggestions {
-  wordImprovements: WordImprovement[];
-  phraseAlternatives: PhraseAlternative[];
-  vocabularyEnhancement: VocabularyEnhancement[];
-  contentEvaluation?: ContentEvaluation;
-}
-
-export interface AnalysisResult {
-  overall_score: number;
-  clarity_score: number;
-  pace_analysis: {
-    words_per_minute: number;
-    assessment: string;
-  };
-  filler_words: {
-    count: number;
-    percentage: string;
-    examples: string[];
-  };
-  tone_analysis: {
-    primary_tone: string;
-    confidence_level: string;
-    emotions: string[];
-  };
-  suggestions: string[];
-  strengths: string[];
-  ai_suggestions?: AISuggestions;
-  transcript?: string;
-}
+import type { AnalysisResult } from '@/types/speechAnalysis';
 
 export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<AnalysisResult> => {
   // Simulate API call delay
