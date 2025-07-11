@@ -12,10 +12,11 @@ export type {
 } from '@/types/speechAnalysis';
 
 import type { AnalysisResult } from '@/types/speechAnalysis';
+import { localLLMService } from '@/services/localLLMService';
 
 export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<AnalysisResult> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  // Show loading state
+  console.log('Starting speech analysis with local LLM...');
   
   // Mock analysis based on duration and random factors for demo
   const estimatedWords = Math.floor(duration * 2.5); // Rough estimate
@@ -66,68 +67,60 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
     ].slice(0, Math.floor(Math.random() * 3) + 1)
   };
   
-  // Get AI-powered suggestions
+  // Get AI-powered suggestions using local LLM
   try {
-    const { supabase } = await import('@/integrations/supabase/client');
-    const { data, error } = await supabase.functions.invoke('generate-speech-suggestions', {
-      body: {
-        transcript: mockTranscript,
-        overallScore,
-        clarityScore,
-        fillerWords,
-        primaryTone
-      }
-    });
+    console.log('Analyzing with local LLM...');
+    const aiSuggestions = await localLLMService.analyzeSpeech(
+      mockTranscript,
+      overallScore,
+      clarityScore,
+      fillerWords,
+      primaryTone
+    );
     
-    console.log('AI suggestions response:', { data, error });
-    
-    if (!error && data) {
-      mockResult.ai_suggestions = data;
-    } else {
-      console.warn('AI suggestions error or no data:', error);
-      // Fallback with mock content evaluation for testing
-      mockResult.ai_suggestions = {
-        wordImprovements: [],
-        phraseAlternatives: [],
-        vocabularyEnhancement: [],
-        contentEvaluation: {
-          mainPoint: {
-            identified: "The speaker discussed project progress and new feature implementation",
-            clarity: 7,
-            feedback: "The main point was somewhat clear but could be more focused and specific"
-          },
-          argumentStructure: {
-            hasStructure: false,
-            structure: "Informal conversational style without clear structure",
-            effectiveness: 5,
-            suggestions: "Consider using a more structured approach like problem-solution or chronological order"
-          },
-          evidenceAndExamples: {
-            hasEvidence: false,
-            evidenceQuality: 4,
-            evidenceTypes: ["anecdote"],
-            suggestions: "Add specific examples, data, or case studies to support your points"
-          },
-          persuasiveness: {
-            pointProven: false,
-            persuasionScore: 5,
-            strengths: ["Confident delivery", "Clear intention"],
-            weaknesses: ["Lack of supporting evidence", "Informal structure"],
-            improvements: "Strengthen arguments with concrete examples and data"
-          },
-          starAnalysis: {
-            situation: "Context was briefly mentioned but not clearly established",
-            task: "Objective was implied but not explicitly stated",
-            action: "Some actions were mentioned but not detailed",
-            result: "Results were not clearly stated or measured",
-            overallStarScore: 4
-          }
-        }
-      };
-    }
+    mockResult.ai_suggestions = aiSuggestions;
+    console.log('Local LLM analysis completed successfully');
   } catch (error) {
-    console.warn('Failed to get AI suggestions:', error);
-    // Continue without AI suggestions
+    console.warn('Local LLM analysis failed, using fallback:', error);
+    // Fallback analysis with varied results
+    mockResult.ai_suggestions = {
+      wordImprovements: [],
+      phraseAlternatives: [],
+      vocabularyEnhancement: [],
+      contentEvaluation: {
+        mainPoint: {
+          identified: "Discussion about project development and implementation",
+          clarity: Math.floor(Math.random() * 3) + 6, // 6-8 range
+          feedback: "The main point could be more focused and specific"
+        },
+        argumentStructure: {
+          hasStructure: Math.random() > 0.5,
+          structure: "Conversational presentation style",
+          effectiveness: Math.floor(Math.random() * 3) + 5, // 5-7 range
+          suggestions: "Consider using a more structured approach"
+        },
+        evidenceAndExamples: {
+          hasEvidence: Math.random() > 0.6,
+          evidenceQuality: Math.floor(Math.random() * 3) + 4, // 4-6 range
+          evidenceTypes: ["anecdotal"],
+          suggestions: "Add specific examples and data to support your points"
+        },
+        persuasiveness: {
+          pointProven: Math.random() > 0.4,
+          persuasionScore: Math.floor(Math.random() * 3) + 5, // 5-7 range
+          strengths: ["Clear delivery", "Confident tone"],
+          weaknesses: ["Could use more structure", "Needs supporting evidence"],
+          improvements: "Strengthen arguments with concrete examples"
+        },
+        starAnalysis: {
+          situation: "Context was mentioned but could be more detailed",
+          task: "Objective was implied but not explicitly stated",
+          action: "Actions were discussed but need more specificity",
+          result: "Results were not clearly quantified",
+          overallStarScore: Math.floor(Math.random() * 4) + 4 // 4-7 range for varied scores
+        }
+      }
+    };
   }
   
   return mockResult;

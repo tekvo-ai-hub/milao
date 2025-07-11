@@ -8,6 +8,7 @@ import AudioRecorder from '@/components/AudioRecorder';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
 import RecordingHistory from '@/components/RecordingHistory';
 import Auth from '@/components/Auth';
+import LLMStatus from '@/components/LLMStatus';
 import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -351,6 +352,10 @@ const Index = () => {
                 Record yourself speaking about any topic for at least 30 seconds to get detailed AI feedback
               </p>
             </div>
+            
+            {/* Local LLM Status */}
+            <LLMStatus />
+            
             <AudioRecorder onRecordingComplete={handleRecordingComplete} isAnalyzing={isAnalyzing} />
             
             {/* Quick Tips */}
