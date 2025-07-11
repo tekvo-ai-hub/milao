@@ -17,6 +17,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   const [duration, setDuration] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevels, setAudioLevels] = useState<number[]>([]);
+  const MAX_RECORDING_TIME = 300; // 5 minutes in seconds
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -71,9 +72,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
       setIsRecording(true);
       setRecordingTime(0);
       
-      // Start recording timer
+      // Start recording timer with 5-minute limit
       intervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          if (newTime >= MAX_RECORDING_TIME) {
+            stopRecording();
+          }
+          return newTime;
+        });
       }, 1000);
       
       // Start audio level monitoring
@@ -172,8 +179,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
           </div>
 
           {/* Recording Time */}
-          <div className="text-2xl font-mono text-gray-700">
-            {formatTime(isRecording ? recordingTime : duration)}
+          <div className="text-center">
+            <div className="text-2xl font-mono text-gray-700">
+              {formatTime(isRecording ? recordingTime : duration)}
+            </div>
+            {isRecording && (
+              <div className="text-sm text-gray-500 mt-1">
+                {formatTime(MAX_RECORDING_TIME - recordingTime)} remaining
+              </div>
+            )}
           </div>
 
           {/* Control Buttons */}

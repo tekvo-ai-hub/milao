@@ -23,7 +23,7 @@ interface RecordingData {
   fillerWords: number;
   primaryTone: string;
   analysis: AnalysisResult;
-  audioBlob: Blob;
+  audioUrl?: string;
 }
 
 const Index = () => {
@@ -77,7 +77,7 @@ const Index = () => {
           fillerWords: record.filler_words_count || 0,
           primaryTone: record.primary_tone || 'neutral',
           analysis: (record.analysis_data as unknown) as AnalysisResult,
-          audioBlob: new Blob() // Empty blob since we don't store audio files yet
+          audioUrl: record.audio_url || undefined
         }));
         setRecordings(formattedRecordings);
       }
@@ -119,7 +119,30 @@ const Index = () => {
       setCurrentAnalysis(analysis);
       setCurrentDuration(duration);
       
-      // Save to Supabase database
+      // Upload audio file to storage
+      const fileName = `${user.id}/${Date.now()}-recording.webm`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('audio-recordings')
+        .upload(fileName, audioBlob, {
+          contentType: 'audio/webm'
+        });
+
+      if (uploadError) {
+        console.error('Error uploading audio:', uploadError);
+        toast({
+          title: "Upload Failed",
+          description: "Could not save audio file.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get the public URL for the audio file
+      const { data: { publicUrl } } = supabase.storage
+        .from('audio-recordings')
+        .getPublicUrl(fileName);
+      
+      // Save to Supabase database with audio URL
       const { error } = await supabase
         .from('speech_recordings')
         .insert({
@@ -131,7 +154,8 @@ const Index = () => {
           pace: analysis.pace_analysis.words_per_minute,
           filler_words_count: analysis.filler_words.count,
           primary_tone: analysis.tone_analysis.primary_tone,
-          analysis_data: analysis as any
+          analysis_data: analysis as any,
+          audio_url: publicUrl
         });
 
       if (error) {
@@ -164,31 +188,82 @@ const Index = () => {
     }
   };
 
-  const handlePlayRecording = (id: string) => {
+  const handlePlayRecording = async (id: string) => {
     const recording = recordings.find(r => r.id === id);
-    if (recording) {
-      const audio = new Audio(URL.createObjectURL(recording.audioBlob));
-      audio.play();
+    if (recording && recording.audioUrl) {
+      try {
+        // Extract file path from URL
+        const urlParts = recording.audioUrl.split('/');
+        const bucketIndex = urlParts.findIndex(part => part === 'audio-recordings');
+        const filePath = urlParts.slice(bucketIndex + 1).join('/');
+        
+        // Get signed URL for private audio file
+        const { data, error } = await supabase.storage
+          .from('audio-recordings')
+          .createSignedUrl(filePath, 60); // 1 minute expiry
+
+        if (error) {
+          console.error('Error getting signed URL:', error);
+          toast({
+            title: "Playback Failed", 
+            description: "Could not load audio file.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const audio = new Audio(data.signedUrl);
+        audio.play().catch(err => {
+          console.error('Error playing audio:', err);
+          toast({
+            title: "Playback Failed",
+            description: "Could not play audio file.",
+            variant: "destructive",
+          });
+        });
+      } catch (error) {
+        console.error('Error playing recording:', error);
+        toast({
+          title: "Playback Failed",
+          description: "Could not play audio file.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
   const handleDeleteRecording = async (id: string) => {
     try {
-      // Only delete from database if it's a real database record (not a temporary one)
-      if (id.length > 10) { // Database UUIDs are longer than our timestamp IDs
-        const { error } = await supabase
-          .from('speech_recordings')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', user.id);
+      const recording = recordings.find(r => r.id === id);
+      
+      // Delete from database
+      const { error } = await supabase
+        .from('speech_recordings')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
 
-        if (error) {
-          toast({
-            title: "Delete Failed",
-            description: "Failed to delete recording from database.",
-            variant: "destructive",
-          });
-          return;
+      if (error) {
+        toast({
+          title: "Delete Failed",
+          description: "Failed to delete recording from database.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Delete audio file from storage if it exists
+      if (recording?.audioUrl) {
+        const urlParts = recording.audioUrl.split('/');
+        const bucketIndex = urlParts.findIndex(part => part === 'audio-recordings');
+        const filePath = urlParts.slice(bucketIndex + 1).join('/');
+        
+        const { error: storageError } = await supabase.storage
+          .from('audio-recordings')
+          .remove([filePath]);
+
+        if (storageError) {
+          console.error('Error deleting audio file:', storageError);
         }
       }
 
