@@ -37,10 +37,10 @@ class LocalLLMService {
     try {
       console.log('Initializing local LLM...');
       
-      // Use a lightweight model for text generation
+      // Use a compatible model for text generation in browser
       this.textGenerationPipeline = await pipeline(
         'text-generation',
-        'Xenova/LaMini-Flan-T5-248M',
+        'Xenova/gpt2',
         { 
           device: 'webgpu'
         }
@@ -53,7 +53,7 @@ class LocalLLMService {
       try {
         this.textGenerationPipeline = await pipeline(
           'text-generation',
-          'Xenova/LaMini-Flan-T5-248M'
+          'Xenova/gpt2'
         );
         this.isInitialized = true;
         console.log('Local LLM initialized with CPU');
@@ -88,9 +88,10 @@ class LocalLLMService {
       );
 
       const result = await this.textGenerationPipeline(analysisPrompt, {
-        max_new_tokens: 500,
-        temperature: 0.7,
+        max_new_tokens: 200,
+        temperature: 0.8,
         do_sample: true,
+        pad_token_id: 50256
       });
 
       const generatedText = Array.isArray(result) ? result[0].generated_text : result.generated_text;
