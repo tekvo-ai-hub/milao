@@ -37,10 +37,10 @@ class LocalLLMService {
     try {
       console.log('Initializing local LLM...');
       
-      // Use a compatible model for text generation in browser
+      // Use a model that's confirmed to work with Transformers.js
       this.textGenerationPipeline = await pipeline(
         'text-generation',
-        'Xenova/gpt2',
+        'Xenova/distilgpt2',
         { 
           device: 'webgpu'
         }
@@ -53,7 +53,7 @@ class LocalLLMService {
       try {
         this.textGenerationPipeline = await pipeline(
           'text-generation',
-          'Xenova/gpt2'
+          'Xenova/distilgpt2'
         );
         this.isInitialized = true;
         console.log('Local LLM initialized with CPU');
