@@ -20,10 +20,45 @@ export interface VocabularyEnhancement {
   usage: string;
 }
 
+export interface ContentEvaluation {
+  mainPoint: {
+    identified: string;
+    clarity: number;
+    feedback: string;
+  };
+  argumentStructure: {
+    hasStructure: boolean;
+    structure: string;
+    effectiveness: number;
+    suggestions: string;
+  };
+  evidenceAndExamples: {
+    hasEvidence: boolean;
+    evidenceQuality: number;
+    evidenceTypes: string[];
+    suggestions: string;
+  };
+  persuasiveness: {
+    pointProven: boolean;
+    persuasionScore: number;
+    strengths: string[];
+    weaknesses: string[];
+    improvements: string;
+  };
+  starAnalysis: {
+    situation: string;
+    task: string;
+    action: string;
+    result: string;
+    overallStarScore: number;
+  };
+}
+
 export interface AISuggestions {
   wordImprovements: WordImprovement[];
   phraseAlternatives: PhraseAlternative[];
   vocabularyEnhancement: VocabularyEnhancement[];
+  contentEvaluation?: ContentEvaluation;
 }
 
 export interface AnalysisResult {

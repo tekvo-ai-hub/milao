@@ -25,7 +25,7 @@ serve(async (req) => {
   try {
     const { transcript, overallScore, clarityScore, fillerWords, primaryTone }: SuggestionRequest = await req.json();
 
-    const prompt = `Analyze this speech transcript and provide specific vocabulary and phrasing improvements:
+    const prompt = `Analyze this speech transcript and provide both vocabulary improvements and content evaluation:
 
 Transcript: "${transcript}"
 Current Score: ${overallScore}/100
@@ -33,12 +33,8 @@ Clarity Score: ${clarityScore}/100
 Detected Filler Words: ${fillerWords.join(', ')}
 Primary Tone: ${primaryTone}
 
-Please provide:
-1. Word Choice Improvements: Suggest 3-4 specific synonyms or better word choices from the transcript
-2. Alternative Phrases: Suggest 2-3 ways to rephrase key sentences more effectively
-3. Vocabulary Enhancement: Suggest 2-3 more sophisticated or precise words they could use
+Please provide a comprehensive analysis in JSON format:
 
-Format your response as JSON with this structure:
 {
   "wordImprovements": [
     {
@@ -60,7 +56,40 @@ Format your response as JSON with this structure:
       "suggestions": ["advanced word 1", "advanced word 2"],
       "usage": "how and when to use these words"
     }
-  ]
+  ],
+  "contentEvaluation": {
+    "mainPoint": {
+      "identified": "What is the speaker's main point or thesis?",
+      "clarity": "How clear was the main point? (scale 1-10)",
+      "feedback": "Suggestions for better articulating the main point"
+    },
+    "argumentStructure": {
+      "hasStructure": true/false,
+      "structure": "Description of the argument structure used (e.g., STAR, Problem-Solution, etc.)",
+      "effectiveness": "How effective was the structure? (scale 1-10)",
+      "suggestions": "How to improve the structure"
+    },
+    "evidenceAndExamples": {
+      "hasEvidence": true/false,
+      "evidenceQuality": "Quality of examples/evidence provided (scale 1-10)",
+      "evidenceTypes": ["example", "statistic", "anecdote", "expert opinion"],
+      "suggestions": "What types of evidence would strengthen the argument"
+    },
+    "persuasiveness": {
+      "pointProven": true/false,
+      "persuasionScore": "How convincing was the argument? (scale 1-10)",
+      "strengths": ["strength1", "strength2"],
+      "weaknesses": ["weakness1", "weakness2"],
+      "improvements": "How to make the argument more persuasive"
+    },
+    "starAnalysis": {
+      "situation": "Was the context/situation clearly established?",
+      "task": "Was the objective/task clearly defined?",
+      "action": "Were the actions/steps clearly explained?",
+      "result": "Were the outcomes/results clearly stated?",
+      "overallStarScore": "How well does this follow STAR methodology? (scale 1-10)"
+    }
+  }
 }
 
 Keep suggestions practical and achievable for the speaker's current level.`;
@@ -81,7 +110,7 @@ Keep suggestions practical and achievable for the speaker's current level.`;
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 2000,
       }),
     });
 
