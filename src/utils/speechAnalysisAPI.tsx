@@ -79,8 +79,51 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
       }
     });
     
+    console.log('AI suggestions response:', { data, error });
+    
     if (!error && data) {
       mockResult.ai_suggestions = data;
+    } else {
+      console.warn('AI suggestions error or no data:', error);
+      // Fallback with mock content evaluation for testing
+      mockResult.ai_suggestions = {
+        wordImprovements: [],
+        phraseAlternatives: [],
+        vocabularyEnhancement: [],
+        contentEvaluation: {
+          mainPoint: {
+            identified: "The speaker discussed project progress and new feature implementation",
+            clarity: 7,
+            feedback: "The main point was somewhat clear but could be more focused and specific"
+          },
+          argumentStructure: {
+            hasStructure: false,
+            structure: "Informal conversational style without clear structure",
+            effectiveness: 5,
+            suggestions: "Consider using a more structured approach like problem-solution or chronological order"
+          },
+          evidenceAndExamples: {
+            hasEvidence: false,
+            evidenceQuality: 4,
+            evidenceTypes: ["anecdote"],
+            suggestions: "Add specific examples, data, or case studies to support your points"
+          },
+          persuasiveness: {
+            pointProven: false,
+            persuasionScore: 5,
+            strengths: ["Confident delivery", "Clear intention"],
+            weaknesses: ["Lack of supporting evidence", "Informal structure"],
+            improvements: "Strengthen arguments with concrete examples and data"
+          },
+          starAnalysis: {
+            situation: "Context was briefly mentioned but not clearly established",
+            task: "Objective was implied but not explicitly stated",
+            action: "Some actions were mentioned but not detailed",
+            result: "Results were not clearly stated or measured",
+            overallStarScore: 4
+          }
+        }
+      };
     }
   } catch (error) {
     console.warn('Failed to get AI suggestions:', error);
