@@ -485,6 +485,7 @@ const Index = () => {
         fetchRecordings();
         setCurrentAnalysis(analysis);
         setCurrentDuration(recording.duration);
+        setCurrentAudioBlob(audioData); // Add this line to provide audio for Text Analytics
         setAnalysisOpen(true);
         toast({
           title: "Re-evaluation Complete!",
