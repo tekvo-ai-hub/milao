@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Calendar, Clock, TrendingUp, Trash2 } from 'lucide-react';
+import { Play, Calendar, Clock, TrendingUp, Trash2, RefreshCw } from 'lucide-react';
 
 interface RecordingData {
   id: string;
@@ -21,13 +21,17 @@ interface RecordingHistoryProps {
   onPlay: (id: string) => void;
   onDelete: (id: string) => void;
   onViewAnalysis: (id: string) => void;
+  onReEvaluate: (id: string) => void;
+  isReEvaluating?: string | null;
 }
 
 const RecordingHistory: React.FC<RecordingHistoryProps> = ({
   recordings,
   onPlay,
   onDelete,
-  onViewAnalysis
+  onViewAnalysis,
+  onReEvaluate,
+  isReEvaluating = null
 }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -132,15 +136,27 @@ const RecordingHistory: React.FC<RecordingHistoryProps> = ({
               </div>
             )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onViewAnalysis(recording.id)}
-              className="w-full"
-            >
-              <TrendingUp className="w-4 h-4 mr-2" />
-              View Full Analysis
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewAnalysis(recording.id)}
+                className="flex-1"
+              >
+                <TrendingUp className="w-4 h-4 mr-2" />
+                View Analysis
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onReEvaluate(recording.id)}
+                disabled={isReEvaluating === recording.id}
+                className="flex-1"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isReEvaluating === recording.id ? 'animate-spin' : ''}`} />
+                {isReEvaluating === recording.id ? 'Re-analyzing...' : 'Re-evaluate'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ))}

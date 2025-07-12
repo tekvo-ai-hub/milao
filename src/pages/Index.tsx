@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User } from 'lucide-react';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload } from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
+import AudioUpload from '@/components/AudioUpload';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
 import RecordingHistory from '@/components/RecordingHistory';
 import Auth from '@/components/Auth';
@@ -35,6 +36,8 @@ const Index = () => {
   const [recordings, setRecordings] = useState<RecordingData[]>([]);
   const [activeTab, setActiveTab] = useState('record');
   const [loadingRecordings, setLoadingRecordings] = useState(false);
+  const [isReEvaluating, setIsReEvaluating] = useState<string | null>(null);
+  const [recordingMethod, setRecordingMethod] = useState<'record' | 'upload'>('record');
   const { toast } = useToast();
 
   // Fetch recordings when user is authenticated
@@ -189,6 +192,94 @@ const Index = () => {
     }
   };
 
+  const handleFileUpload = async (file: File) => {
+    setIsAnalyzing(true);
+    try {
+      // Convert file to blob for analysis
+      const audioBlob = new Blob([await file.arrayBuffer()], { type: file.type });
+      
+      // Get audio duration
+      const audio = new Audio();
+      const duration = await new Promise<number>((resolve) => {
+        audio.onloadedmetadata = () => resolve(audio.duration);
+        audio.onerror = () => resolve(0);
+        audio.src = URL.createObjectURL(audioBlob);
+      });
+      
+      const analysis = await analyzeSpeech(audioBlob, Math.floor(duration));
+      setCurrentAnalysis(analysis);
+      setCurrentDuration(Math.floor(duration));
+      
+      // Upload audio file to storage
+      const fileName = `${user.id}/${Date.now()}-${file.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('audio-recordings')
+        .upload(fileName, audioBlob, {
+          contentType: file.type
+        });
+
+      if (uploadError) {
+        console.error('Error uploading audio:', uploadError);
+        toast({
+          title: "Upload Failed",
+          description: "Could not save audio file.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get the public URL for the audio file
+      const { data: { publicUrl } } = supabase.storage
+        .from('audio-recordings')
+        .getPublicUrl(fileName);
+      
+      // Save to Supabase database with audio URL
+      const { error } = await supabase
+        .from('speech_recordings')
+        .insert({
+          user_id: user.id,
+          title: `${file.name} - ${new Date().toLocaleDateString()}`,
+          duration: Math.floor(duration),
+          overall_score: analysis.overall_score,
+          clarity_score: analysis.clarity_score,
+          pace: analysis.pace_analysis.words_per_minute,
+          filler_words_count: analysis.filler_words.count,
+          primary_tone: analysis.tone_analysis.primary_tone,
+          analysis_data: analysis as any,
+          audio_url: publicUrl
+        });
+
+      if (error) {
+        console.error('Error saving recording:', error);
+        toast({
+          title: "Save Failed",
+          description: "Recording analyzed but couldn't save to database.",
+          variant: "destructive",
+        });
+      } else {
+        // Refresh recordings from database to stay in sync
+        fetchRecordings();
+        toast({
+          title: "Analysis Complete!",
+          description: `Your speech scored ${analysis.overall_score}/100`,
+        });
+      }
+      
+      setActiveTab('analysis');
+      
+    } catch (error) {
+      toast({
+        title: "Analysis Failed",
+        description: "Please try uploading again.",
+        variant: "destructive",
+      });
+      console.error('Upload analysis error:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+
+  };
+
   const handlePlayRecording = async (id: string) => {
     const recording = recordings.find(r => r.id === id);
     if (recording && recording.audioUrl) {
@@ -292,6 +383,89 @@ const Index = () => {
     }
   };
 
+  const handleReEvaluate = async (id: string) => {
+    const recording = recordings.find(r => r.id === id);
+    if (!recording || !recording.audioUrl) {
+      toast({
+        title: "Re-evaluation Failed",
+        description: "Audio file not found for this recording.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsReEvaluating(id);
+    try {
+      // Extract file path from URL
+      const urlParts = recording.audioUrl.split('/');
+      const bucketIndex = urlParts.findIndex(part => part === 'audio-recordings');
+      const filePath = urlParts.slice(bucketIndex + 1).join('/');
+      
+      // Get the audio file from storage
+      const { data: audioData, error: downloadError } = await supabase.storage
+        .from('audio-recordings')
+        .download(filePath);
+
+      if (downloadError) {
+        console.error('Error downloading audio:', downloadError);
+        toast({
+          title: "Re-evaluation Failed",
+          description: "Could not download audio file.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Re-analyze the audio
+      const analysis = await analyzeSpeech(audioData, recording.duration);
+      
+      // Update the database with new analysis
+      const { error: updateError } = await supabase
+        .from('speech_recordings')
+        .update({
+          overall_score: analysis.overall_score,
+          clarity_score: analysis.clarity_score,
+          pace: analysis.pace_analysis.words_per_minute,
+          filler_words_count: analysis.filler_words.count,
+          primary_tone: analysis.tone_analysis.primary_tone,
+          analysis_data: analysis as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error updating recording:', updateError);
+        toast({
+          title: "Update Failed",
+          description: "Analysis completed but couldn't save new results.",
+          variant: "destructive",
+        });
+      } else {
+        // Refresh recordings and show new analysis
+        fetchRecordings();
+        setCurrentAnalysis(analysis);
+        setCurrentDuration(recording.duration);
+        setActiveTab('analysis');
+        toast({
+          title: "Re-evaluation Complete!",
+          description: `Updated analysis - scored ${analysis.overall_score}/100`,
+        });
+      }
+
+    } catch (error) {
+      console.error('Error re-evaluating recording:', error);
+      toast({
+        title: "Re-evaluation Failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReEvaluating(null);
+    }
+
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
@@ -332,7 +506,7 @@ const Index = () => {
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="record" className="flex items-center space-x-2">
               <Mic className="w-4 h-4" />
-              <span>Record</span>
+              <span>Record/Upload</span>
             </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center space-x-2" disabled={!currentAnalysis}>
               <TrendingUp className="w-4 h-4" />
@@ -344,19 +518,47 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Record Tab */}
+          {/* Record/Upload Tab */}
           <TabsContent value="record" className="space-y-6">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">Ready to Practice?</h2>
               <p className="text-gray-600">
-                Record yourself speaking about any topic for at least 30 seconds to get detailed AI feedback
+                Record yourself or upload an audio file to get detailed AI feedback
               </p>
+            </div>
+            
+            {/* Method Selection */}
+            <div className="flex justify-center mb-6">
+              <div className="flex bg-muted rounded-lg p-1">
+                <Button
+                  variant={recordingMethod === 'record' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setRecordingMethod('record')}
+                  className="flex items-center gap-2"
+                >
+                  <Mic className="w-4 h-4" />
+                  Record Live
+                </Button>
+                <Button
+                  variant={recordingMethod === 'upload' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setRecordingMethod('upload')}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload File
+                </Button>
+              </div>
             </div>
             
             {/* Local LLM Status */}
             <LLMStatus />
             
-            <AudioRecorder onRecordingComplete={handleRecordingComplete} isAnalyzing={isAnalyzing} />
+            {recordingMethod === 'record' ? (
+              <AudioRecorder onRecordingComplete={handleRecordingComplete} isAnalyzing={isAnalyzing} />
+            ) : (
+              <AudioUpload onFileSelect={handleFileUpload} isProcessing={isAnalyzing} />
+            )}
             
             {/* Quick Tips */}
             <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0">
@@ -366,9 +568,10 @@ const Index = () => {
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li>• Speak in a quiet environment for better analysis</li>
-                  <li>• Record for at least 30 seconds to get comprehensive feedback</li>
+                  <li>• {recordingMethod === 'record' ? 'Record for at least 30 seconds' : 'Upload audio files up to 50MB'} to get comprehensive feedback</li>
                   <li>• Speak naturally - pretend you're talking to a friend</li>
                   <li>• Try different topics: presentations, casual conversations, or storytelling</li>
+                  {recordingMethod === 'upload' && <li>• Supported formats: MP3, WAV, WebM, M4A, OGG</li>}
                 </ul>
               </CardContent>
             </Card>
@@ -412,6 +615,8 @@ const Index = () => {
               onPlay={handlePlayRecording}
               onDelete={handleDeleteRecording}
               onViewAnalysis={handleViewAnalysis}
+              onReEvaluate={handleReEvaluate}
+              isReEvaluating={isReEvaluating}
             />
           </TabsContent>
         </Tabs>
