@@ -28,6 +28,12 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   
   const clarityScore = Math.floor(Math.random() * 30) + 70;
   const overallScore = Math.floor((clarityScore + Math.min(100, Math.max(60, 150 - Math.abs(wpm - 150) * 2))) / 2);
+  
+  // Ensure score is never NaN
+  const validOverallScore = isNaN(overallScore) ? 75 : overallScore;
+  
+  console.log('Analysis Debug - Duration:', duration, 'Overall Score:', validOverallScore, 'Clarity:', clarityScore);
+  
   const primaryTone = tones[Math.floor(Math.random() * tones.length)];
   const fillerWords = ['um', 'uh', 'like', 'you know'].slice(0, fillerCount);
   
@@ -35,7 +41,7 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   const mockTranscript = "I think that, um, the project is going really well and, uh, we should consider implementing these new features. Like, it would be good to get feedback from users about what they want to see next.";
   
   const mockResult: AnalysisResult = {
-    overall_score: overallScore,
+    overall_score: validOverallScore,
     clarity_score: clarityScore,
     transcript: mockTranscript,
     pace_analysis: {
@@ -69,7 +75,7 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
     console.log('Analyzing with local LLM...');
     const aiSuggestions = await localLLMService.analyzeSpeech(
       mockTranscript,
-      overallScore,
+      validOverallScore,
       clarityScore,
       fillerWords,
       primaryTone

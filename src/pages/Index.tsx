@@ -120,7 +120,16 @@ const Index = () => {
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsAnalyzing(true);
     try {
+      console.log('Recording Complete Debug:', { duration, audioBlobSize: audioBlob.size });
+      
       const analysis = await analyzeSpeech(audioBlob, duration);
+      
+      console.log('Analysis Result Debug:', {
+        overall_score: analysis.overall_score,
+        duration: duration,
+        analysis
+      });
+      
       setCurrentAnalysis(analysis);
       setCurrentDuration(duration);
       
@@ -388,6 +397,13 @@ const Index = () => {
   const handleViewAnalysis = (id: string) => {
     const recording = recordings.find(r => r.id === id);
     if (recording) {
+      console.log('View Analysis Debug:', {
+        id,
+        duration: recording.duration,
+        overall_score: recording.analysis?.overall_score,
+        recordingData: recording
+      });
+      
       setCurrentAnalysis(recording.analysis);
       setCurrentDuration(recording.duration);
       setActiveTab('analysis');
