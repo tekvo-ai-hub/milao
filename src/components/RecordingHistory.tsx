@@ -23,6 +23,7 @@ interface RecordingHistoryProps {
   onViewAnalysis: (id: string) => void;
   onReEvaluate: (id: string) => void;
   isReEvaluating?: string | null;
+  isLoading?: boolean;
 }
 
 const RecordingHistory: React.FC<RecordingHistoryProps> = ({

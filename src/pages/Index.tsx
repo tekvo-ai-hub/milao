@@ -630,8 +630,8 @@ const Index = () => {
                 />
               ) : (
                 <AudioUpload
-                  onUpload={handleFileUpload}
-                  isAnalyzing={isAnalyzing}
+                  onFileSelect={handleFileUpload}
+                  isProcessing={isAnalyzing}
                 />
               )}
               
