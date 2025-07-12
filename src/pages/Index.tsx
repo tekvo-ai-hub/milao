@@ -515,15 +515,17 @@ const Index = () => {
               </div>
               <div className="text-left">
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                  Speech AI Coach
+                  VoicePro AI
                 </h1>
-                <p className="text-muted-foreground text-sm mt-1">Powered by AI</p>
+                <p className="text-muted-foreground text-sm mt-1">AI Speech Coach</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-muted-foreground bg-card/50 backdrop-blur-sm px-4 py-2 rounded-full border border-[var(--glass-border)]">
                 <User className="w-4 h-4" />
-                <span className="text-sm">{user.email}</span>
+                <span className="text-sm">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                </span>
               </div>
               <Button
                 variant="outline"
