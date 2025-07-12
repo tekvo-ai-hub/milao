@@ -552,9 +552,12 @@ const Index = () => {
                   </Button>
                 </div>
               </div>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-6">
                 Transform your communication skills with AI-powered speech analysis and personalized feedback
               </p>
+              
+              {/* Local AI Status */}
+              <LLMStatus />
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -674,8 +677,6 @@ const Index = () => {
                       isProcessing={isAnalyzing}
                     />
                   )}
-                  
-                  <LLMStatus />
                 </CardContent>
               </CollapsibleContent>
             </Card>
