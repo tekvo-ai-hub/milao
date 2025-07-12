@@ -46,7 +46,6 @@ const Index = () => {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [textAnalyticsOpen, setTextAnalyticsOpen] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const { toast } = useToast();
@@ -589,33 +588,6 @@ const Index = () => {
             </Card>
           </Collapsible>
 
-          {/* Text Analytics Section */}
-          <Collapsible open={textAnalyticsOpen} onOpenChange={setTextAnalyticsOpen}>
-            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-5 h-5 text-primary" />
-                      <span>Text Analytics</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${textAnalyticsOpen ? 'rotate-180' : ''}`} />
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  <TextAnalytics 
-                    audioBlob={currentAudioBlob || undefined} 
-                    onTranscriptGenerated={(transcript) => {
-                      console.log('Transcript generated:', transcript);
-                    }}
-                  />
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-
           {/* Record Section */}
           <Collapsible open={recordOpen} onOpenChange={setRecordOpen}>
             <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
@@ -804,7 +776,24 @@ const Index = () => {
               <CollapsibleContent>
                 <CardContent>
                   {currentAnalysis ? (
-                    <SpeechAnalysis analysis={currentAnalysis} duration={currentDuration} />
+                    <div className="space-y-6">
+                      {/* Speech Analysis */}
+                      <SpeechAnalysis analysis={currentAnalysis} duration={currentDuration} />
+                      
+                      {/* Text Analytics */}
+                      <div className="pt-6 border-t">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span>Text Analytics</span>
+                        </h3>
+                        <TextAnalytics 
+                          audioBlob={currentAudioBlob || undefined} 
+                          onTranscriptGenerated={(transcript) => {
+                            console.log('Transcript generated:', transcript);
+                          }}
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <div className="p-8 text-center">
                       <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
