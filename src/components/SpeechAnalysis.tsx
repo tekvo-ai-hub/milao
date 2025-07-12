@@ -2,7 +2,7 @@ import React from 'react';
 import OverallScoreCard from './speech-analysis/OverallScoreCard';
 import DetailedMetrics from './speech-analysis/DetailedMetrics';
 import StrengthsSection from './speech-analysis/StrengthsSection';
-import VocabularySuggestions from './speech-analysis/VocabularySuggestions';
+
 import ContentEvaluation from './speech-analysis/ContentEvaluation';
 import GeneralSuggestions from './speech-analysis/GeneralSuggestions';
 import SpeechSummary from './speech-analysis/SpeechSummary';
@@ -15,7 +15,14 @@ interface SpeechAnalysisProps {
 
 const SpeechAnalysis: React.FC<SpeechAnalysisProps> = ({ analysis, duration }) => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-6 bg-gradient-to-br from-background/50 to-muted/30 rounded-xl">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          Speech Analysis Report
+        </h2>
+        <p className="text-muted-foreground mt-2">Comprehensive evaluation of your speech performance</p>
+      </div>
       {/* Overall Score */}
       <OverallScoreCard score={analysis.overall_score} duration={duration} />
 
@@ -30,16 +37,9 @@ const SpeechAnalysis: React.FC<SpeechAnalysisProps> = ({ analysis, duration }) =
       {/* Strengths */}
       <StrengthsSection strengths={analysis.strengths} />
 
-      {/* AI-Powered Vocabulary Suggestions */}
-      {analysis.ai_suggestions && (
-        <div className="space-y-4">
-          <VocabularySuggestions suggestions={analysis.ai_suggestions} />
-
-          {/* Content Evaluation */}
-          {analysis.ai_suggestions.contentEvaluation && (
-            <ContentEvaluation evaluation={analysis.ai_suggestions.contentEvaluation} />
-          )}
-        </div>
+      {/* Content Evaluation */}
+      {analysis.ai_suggestions?.contentEvaluation && (
+        <ContentEvaluation evaluation={analysis.ai_suggestions.contentEvaluation} />
       )}
 
       {/* General Suggestions */}

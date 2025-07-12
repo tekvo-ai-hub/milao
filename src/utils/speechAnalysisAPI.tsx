@@ -3,9 +3,6 @@
 // In a real app, you would integrate with OpenAI's Whisper API or similar service
 
 export type {
-  WordImprovement,
-  PhraseAlternative,
-  VocabularyEnhancement,
   ContentEvaluation,
   AISuggestions,
   AnalysisResult
@@ -84,9 +81,6 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
     console.warn('Local LLM analysis failed, using fallback:', error);
     // Fallback analysis with varied results
     mockResult.ai_suggestions = {
-      wordImprovements: [],
-      phraseAlternatives: [],
-      vocabularyEnhancement: [],
       contentEvaluation: {
         mainPoint: {
           identified: "Discussion about project development and implementation",

@@ -28,26 +28,37 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({ score, duration }) 
   };
 
   return (
-    <Card className="border-l-4 border-l-blue-500">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <TrendingUp className="w-5 h-5" />
-          <span>Overall Speech Score</span>
+    <Card className="border-0 shadow-lg bg-gradient-to-r from-primary/5 to-secondary/5 backdrop-blur-sm">
+      <CardHeader className="text-center pb-4">
+        <CardTitle className="flex items-center justify-center space-x-3 text-2xl">
+          <TrendingUp className="w-8 h-8 text-primary" />
+          <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Overall Speech Score
+          </span>
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center space-x-4">
-          <div className={`text-4xl font-bold ${getScoreColor(score)}`}>
-            {score}
+      <CardContent className="pt-0">
+        <div className="flex flex-col items-center space-y-6">
+          <div className="relative">
+            <div className={`text-6xl font-bold ${getScoreColor(score)} drop-shadow-sm`}>
+              {score}
+            </div>
+            <div className="absolute -top-2 -right-4">
+              {getScoreIcon(score)}
+            </div>
           </div>
-          <div className="flex-1">
-            <Progress value={score} className="h-3" />
+          <div className="w-full max-w-md">
+            <Progress value={score} className="h-4 shadow-inner" />
+            <div className="flex justify-between text-sm text-muted-foreground mt-2">
+              <span>0</span>
+              <span>100</span>
+            </div>
           </div>
-          {getScoreIcon(score)}
+          <div className="text-center space-y-1">
+            <p className="text-lg font-medium">Recording Duration</p>
+            <p className="text-2xl font-bold text-primary">{formatDuration(duration)}</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-600 mt-2">
-          Recording duration: {formatDuration(duration)}
-        </p>
       </CardContent>
     </Card>
   );

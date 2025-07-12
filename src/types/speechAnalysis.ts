@@ -1,20 +1,3 @@
-export interface WordImprovement {
-  original: string;
-  suggestions: string[];
-  context: string;
-}
-
-export interface PhraseAlternative {
-  original: string;
-  alternatives: string[];
-  improvement: string;
-}
-
-export interface VocabularyEnhancement {
-  category: string;
-  suggestions: string[];
-  usage: string;
-}
 
 export interface ContentEvaluation {
   mainPoint: {
@@ -51,9 +34,6 @@ export interface ContentEvaluation {
 }
 
 export interface AISuggestions {
-  wordImprovements: WordImprovement[];
-  phraseAlternatives: PhraseAlternative[];
-  vocabularyEnhancement: VocabularyEnhancement[];
   contentEvaluation?: ContentEvaluation;
   speechSummary?: string;
 }

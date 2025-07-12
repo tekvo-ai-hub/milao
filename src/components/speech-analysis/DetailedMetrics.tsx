@@ -17,21 +17,30 @@ const DetailedMetrics: React.FC<DetailedMetricsProps> = ({ analysis }) => {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Clarity Score */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-lg">
-            <Volume2 className="w-5 h-5" />
-            <span>Clarity</span>
+      <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center space-x-3 text-xl">
+            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+              <Volume2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Clarity
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-3">
-            <div className={`text-2xl font-semibold ${getScoreColor(analysis.clarity_score)}`}>
-              {analysis.clarity_score}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className={`text-4xl font-bold ${getScoreColor(analysis.clarity_score)}`}>
+                {analysis.clarity_score}
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Out of 100</div>
+              </div>
             </div>
-            <Progress value={analysis.clarity_score} className="flex-1 h-2" />
+            <Progress value={analysis.clarity_score} className="h-3 shadow-inner" />
           </div>
         </CardContent>
       </Card>

@@ -170,9 +170,6 @@ Format your response clearly with these sections.`;
     const persuasionScore = this.extractScore(generatedText, 'persuasion', 5);
 
     return {
-      wordImprovements: this.extractWordImprovements(generatedText, transcript),
-      phraseAlternatives: this.extractPhraseAlternatives(generatedText, transcript),
-      vocabularyEnhancement: this.extractVocabularyEnhancement(generatedText),
       contentEvaluation: {
         mainPoint: {
           identified: this.extractMainPoint(generatedText, transcript),
@@ -359,9 +356,6 @@ Format your response clearly with these sections.`;
     const speechSummary = this.generateSpeechSummary(transcript);
 
     return {
-      wordImprovements,
-      phraseAlternatives,
-      vocabularyEnhancement,
       contentEvaluation,
       speechSummary
     };
