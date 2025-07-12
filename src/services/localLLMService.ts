@@ -99,7 +99,7 @@ class LocalLLMService {
       return this.parseAnalysisResult(generatedText, transcript, overallScore);
     } catch (error) {
       console.error('Error in local LLM analysis:', error);
-      return this.getFallbackAnalysis(transcript, overallScore);
+      return this.getDynamicFallbackAnalysis(transcript, overallScore, clarityScore, fillerWords, primaryTone);
     }
   }
 
@@ -319,69 +319,360 @@ Format your response clearly with these sections.`;
     ];
   }
 
-  private getFallbackAnalysis(transcript: string, overallScore: number): AISuggestions {
-    // Provide varied fallback analysis based on transcript content
-    const transcriptLength = transcript.length;
-    const hasFillers = /\b(um|uh|like|you know)\b/i.test(transcript);
-    const hasQuestions = transcript.includes('?');
+  private getDynamicFallbackAnalysis(
+    transcript: string, 
+    overallScore: number, 
+    clarityScore: number, 
+    fillerWords: string[], 
+    primaryTone: string
+  ): AISuggestions {
+    const transcriptLower = transcript.toLowerCase();
+    const words = transcript.split(/\s+/);
+    const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
     
-    const starScore = Math.floor(Math.random() * 4) + 4; // 4-7 range for varied scores
-    const clarityScore = Math.floor(Math.random() * 3) + 6; // 6-8 range
+    // Dynamic word improvements based on actual content
+    const wordImprovements = this.findWordImprovements(transcript, transcriptLower);
     
+    // Dynamic phrase alternatives based on actual phrases found
+    const phraseAlternatives = this.findPhraseAlternatives(transcript, transcriptLower);
+    
+    // Dynamic vocabulary enhancement based on content analysis
+    const vocabularyEnhancement = this.generateVocabularyEnhancement(transcript, primaryTone);
+    
+    // Content evaluation with varied scores based on actual content
+    const contentEvaluation = this.generateDynamicContentEvaluation(
+      transcript, 
+      words, 
+      sentences, 
+      overallScore, 
+      clarityScore, 
+      fillerWords
+    );
+
     return {
-      wordImprovements: [],
-      phraseAlternatives: [],
-      vocabularyEnhancement: [],
-      contentEvaluation: {
-        mainPoint: {
-          identified: transcriptLength > 100 ? 
-            "Discussion about project development and future implementation strategies" :
-            "Brief conversation about current topics",
-          clarity: clarityScore,
-          feedback: hasFillers ? 
-            "Reduce filler words to improve clarity" : 
-            "Main point is reasonably clear but could be more focused"
-        },
-        argumentStructure: {
-          hasStructure: transcriptLength > 150,
-          structure: hasQuestions ? 
-            "Conversational inquiry style" : 
-            "Narrative presentation format",
-          effectiveness: Math.floor(Math.random() * 3) + 5, // 5-7 range
-          suggestions: "Consider using a more structured approach with clear introduction, body, and conclusion"
-        },
-        evidenceAndExamples: {
-          hasEvidence: /\b(data|example|study|research)\b/i.test(transcript),
-          evidenceQuality: Math.floor(Math.random() * 3) + 4, // 4-6 range
-          evidenceTypes: ["anecdotal evidence"],
-          suggestions: "Include specific examples, statistics, or case studies to strengthen your points"
-        },
-        persuasiveness: {
-          pointProven: starScore > 5,
-          persuasionScore: Math.floor(Math.random() * 3) + 5, // 5-7 range
-          strengths: ["Clear articulation", "Confident delivery"],
-          weaknesses: hasFillers ? 
-            ["Frequent filler words", "Could use more structure"] :
-            ["Could benefit from supporting evidence"],
-          improvements: "Strengthen arguments with concrete examples and eliminate unnecessary filler words"
-        },
-        starAnalysis: {
-          situation: transcriptLength > 200 ? 
-            "Context was well established with good background information" :
-            "Situation was mentioned but could be more detailed",
-          task: hasQuestions ?
-            "Objectives were clearly questioned and explored" :
-            "Task was implied but not explicitly defined",
-          action: /\b(will|should|could|implement|do|create)\b/i.test(transcript) ?
-            "Specific actions were outlined and discussed" :
-            "Actions were mentioned but need more detail",
-          result: /\b(result|outcome|achieve|success|complete)\b/i.test(transcript) ?
-            "Expected results were clearly communicated" :
-            "Results need to be more clearly defined and measurable",
-          overallStarScore: starScore
+      wordImprovements,
+      phraseAlternatives,
+      vocabularyEnhancement,
+      contentEvaluation
+    };
+  }
+
+  private findWordImprovements(transcript: string, transcriptLower: string): Array<{original: string; suggestions: string[]; context: string}> {
+    const improvements = [];
+    const commonReplacements = {
+      'good': ['excellent', 'outstanding', 'effective', 'superior', 'remarkable'],
+      'bad': ['poor', 'inadequate', 'substandard', 'problematic', 'unsatisfactory'],
+      'nice': ['pleasant', 'appealing', 'satisfactory', 'delightful', 'agreeable'],
+      'big': ['substantial', 'significant', 'considerable', 'extensive', 'massive'],
+      'small': ['minor', 'minimal', 'compact', 'modest', 'limited'],
+      'things': ['aspects', 'elements', 'components', 'factors', 'issues'],
+      'stuff': ['items', 'materials', 'concepts', 'matters', 'elements'],
+      'get': ['obtain', 'acquire', 'secure', 'achieve', 'receive'],
+      'make': ['create', 'develop', 'establish', 'generate', 'construct'],
+      'do': ['execute', 'perform', 'accomplish', 'implement', 'undertake'],
+      'very': ['extremely', 'significantly', 'considerably', 'remarkably', 'exceptionally'],
+      'really': ['genuinely', 'truly', 'substantially', 'remarkably', 'particularly']
+    };
+
+    for (const [word, suggestions] of Object.entries(commonReplacements)) {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      const matches = transcript.match(regex);
+      if (matches && matches.length > 0) {
+        // Find context for the word
+        const contextMatch = transcript.match(new RegExp(`[^.!?]*\\b${word}\\b[^.!?]*`, 'i'));
+        const context = contextMatch ? contextMatch[0].trim() : `Usage of "${word}"`;
+        
+        improvements.push({
+          original: matches[0], // Keep original case
+          suggestions: suggestions.slice(0, 3), // Limit to 3 suggestions
+          context: `In context: "${context.length > 60 ? context.substring(0, 60) + '...' : context}"`
+        });
+      }
+    }
+
+    return improvements.slice(0, 4); // Limit to 4 improvements
+  }
+
+  private findPhraseAlternatives(transcript: string, transcriptLower: string): Array<{original: string; alternatives: string[]; improvement: string}> {
+    const alternatives = [];
+    const phraseReplacements = [
+      {
+        patterns: ['i think that', 'i think'],
+        alternatives: ['In my analysis', 'Based on my assessment', 'My evaluation indicates', 'From my perspective'],
+        improvement: 'Use more confident, assertive language'
+      },
+      {
+        patterns: ['you know', 'you know what i mean'],
+        alternatives: ['Specifically', 'To clarify', 'More precisely', 'In particular'],
+        improvement: 'Replace filler phrases with specific clarifications'
+      },
+      {
+        patterns: ['kind of', 'sort of'],
+        alternatives: ['somewhat', 'partially', 'to some extent', 'moderately'],
+        improvement: 'Use more precise qualifiers'
+      },
+      {
+        patterns: ['at the end of the day'],
+        alternatives: ['Ultimately', 'In conclusion', 'Most importantly', 'The key point is'],
+        improvement: 'Use more professional concluding phrases'
+      },
+      {
+        patterns: ['a lot of'],
+        alternatives: ['numerous', 'many', 'significant amounts of', 'substantial'],
+        improvement: 'Use more specific quantifiers'
+      }
+    ];
+
+    for (const replacement of phraseReplacements) {
+      for (const pattern of replacement.patterns) {
+        if (transcriptLower.includes(pattern)) {
+          // Find the actual phrase in original case
+          const regex = new RegExp(pattern.replace(/\s+/g, '\\s+'), 'gi');
+          const match = transcript.match(regex);
+          if (match) {
+            alternatives.push({
+              original: match[0],
+              alternatives: replacement.alternatives.slice(0, 3),
+              improvement: replacement.improvement
+            });
+            break; // Only add once per pattern group
+          }
         }
       }
+    }
+
+    return alternatives.slice(0, 3);
+  }
+
+  private generateVocabularyEnhancement(transcript: string, primaryTone: string): Array<{category: string; suggestions: string[]; usage: string}> {
+    const enhancements = [];
+    const transcriptLower = transcript.toLowerCase();
+    
+    // Business/Professional context
+    if (transcriptLower.includes('work') || transcriptLower.includes('project') || transcriptLower.includes('business') || primaryTone === 'Professional') {
+      enhancements.push({
+        category: 'Professional terminology',
+        suggestions: ['optimize', 'streamline', 'facilitate', 'implement', 'leverage', 'strategize'],
+        usage: 'Enhance your professional communication with precise business language'
+      });
+    }
+
+    // Technical context
+    if (transcriptLower.includes('system') || transcriptLower.includes('process') || transcriptLower.includes('technology')) {
+      enhancements.push({
+        category: 'Technical precision',
+        suggestions: ['systematically', 'methodology', 'framework', 'protocol', 'integration'],
+        usage: 'Use technical terms to demonstrate expertise and precision'
+      });
+    }
+
+    // Always include transition words if speech lacks structure
+    const hasTransitions = ['however', 'furthermore', 'therefore', 'meanwhile', 'consequently'].some(
+      word => transcriptLower.includes(word)
+    );
+    
+    if (!hasTransitions) {
+      enhancements.push({
+        category: 'Transition words',
+        suggestions: ['furthermore', 'consequently', 'nevertheless', 'meanwhile', 'specifically'],
+        usage: 'Improve speech flow and logical connections between ideas'
+      });
+    }
+
+    // Emotional/persuasive context
+    if (primaryTone === 'Enthusiastic' || primaryTone === 'Passionate' || transcriptLower.includes('feel') || transcriptLower.includes('believe')) {
+      enhancements.push({
+        category: 'Persuasive language',
+        suggestions: ['compelling', 'convincing', 'impactful', 'significant', 'transformative'],
+        usage: 'Strengthen emotional appeal and persuasive impact'
+      });
+    }
+
+    return enhancements.slice(0, 3);
+  }
+
+  private generateDynamicContentEvaluation(
+    transcript: string, 
+    words: string[], 
+    sentences: string[], 
+    overallScore: number, 
+    clarityScore: number, 
+    fillerWords: string[]
+  ): ContentEvaluation {
+    const transcriptLower = transcript.toLowerCase();
+    const wordCount = words.length;
+    const sentenceCount = sentences.length;
+    
+    // Dynamic main point identification
+    const mainPoint = this.identifyMainPoint(sentences, transcript);
+    const mainPointClarity = this.calculateMainPointClarity(transcript, clarityScore);
+    
+    // Structure analysis
+    const structureAnalysis = this.analyzeStructure(sentences, transcript);
+    
+    // Evidence analysis
+    const evidenceAnalysis = this.analyzeEvidence(transcriptLower);
+    
+    // Persuasiveness analysis
+    const persuasivenessAnalysis = this.analyzePersuasiveness(transcript, overallScore);
+    
+    // STAR analysis
+    const starAnalysis = this.analyzeSTARMethod(transcriptLower, wordCount);
+
+    return {
+      mainPoint: {
+        identified: mainPoint,
+        clarity: mainPointClarity,
+        feedback: this.generateMainPointFeedback(mainPointClarity, fillerWords.length)
+      },
+      argumentStructure: structureAnalysis,
+      evidenceAndExamples: evidenceAnalysis,
+      persuasiveness: persuasivenessAnalysis,
+      starAnalysis: starAnalysis
     };
+  }
+
+  private identifyMainPoint(sentences: string[], transcript: string): string {
+    if (sentences.length === 0) return "No clear main point identified";
+    
+    // Look for the longest, most substantive sentence as likely main point
+    const substantiveSentences = sentences
+      .filter(s => s.trim().length > 20)
+      .sort((a, b) => b.length - a.length);
+    
+    if (substantiveSentences.length > 0) {
+      return substantiveSentences[0].trim().substring(0, 100) + (substantiveSentences[0].length > 100 ? '...' : '');
+    }
+    
+    return sentences[0]?.trim().substring(0, 100) + (sentences[0]?.length > 100 ? '...' : '') || "Brief discussion point";
+  }
+
+  private calculateMainPointClarity(transcript: string, clarityScore: number): number {
+    // Base on clarity score but adjust for content factors
+    let clarity = Math.floor(clarityScore / 10);
+    
+    // Adjust based on transcript characteristics
+    if (transcript.includes('specifically') || transcript.includes('exactly')) clarity += 1;
+    if (transcript.includes('um') || transcript.includes('uh')) clarity -= 1;
+    if (transcript.split(/[.!?]/).length > 3) clarity += 1; // Multiple clear statements
+    
+    return Math.max(1, Math.min(10, clarity));
+  }
+
+  private analyzeStructure(sentences: string[], transcript: string): any {
+    const hasIntro = transcript.toLowerCase().includes('first') || transcript.toLowerCase().includes('to begin');
+    const hasConclusion = transcript.toLowerCase().includes('finally') || transcript.toLowerCase().includes('in conclusion');
+    const hasTransitions = ['then', 'next', 'furthermore', 'however', 'therefore'].some(word => 
+      transcript.toLowerCase().includes(word)
+    );
+    
+    const hasStructure = sentences.length > 2 && (hasIntro || hasConclusion || hasTransitions);
+    const effectiveness = hasStructure ? Math.floor(Math.random() * 3) + 6 : Math.floor(Math.random() * 3) + 3;
+    
+    let structureType = 'Conversational style';
+    if (hasIntro && hasConclusion) structureType = 'Structured presentation';
+    else if (hasTransitions) structureType = 'Sequential narrative';
+    else if (transcript.includes('?')) structureType = 'Interactive discussion';
+    
+    return {
+      hasStructure,
+      structure: structureType,
+      effectiveness,
+      suggestions: hasStructure ? 
+        'Good structural elements present. Consider strengthening transitions.' :
+        'Add clear introduction, main points, and conclusion for better structure.'
+    };
+  }
+
+  private analyzeEvidence(transcriptLower: string): any {
+    const evidenceKeywords = ['data', 'study', 'research', 'example', 'statistics', 'fact', 'evidence', 'proof', 'analysis'];
+    const hasEvidence = evidenceKeywords.some(keyword => transcriptLower.includes(keyword));
+    
+    const evidenceTypes = [];
+    if (transcriptLower.includes('data') || transcriptLower.includes('statistics')) evidenceTypes.push('statistical data');
+    if (transcriptLower.includes('example') || transcriptLower.includes('instance')) evidenceTypes.push('examples');
+    if (transcriptLower.includes('study') || transcriptLower.includes('research')) evidenceTypes.push('research findings');
+    if (!evidenceTypes.length) evidenceTypes.push('anecdotal');
+    
+    const quality = hasEvidence ? Math.floor(Math.random() * 3) + 6 : Math.floor(Math.random() * 3) + 3;
+    
+    return {
+      hasEvidence,
+      evidenceQuality: quality,
+      evidenceTypes,
+      suggestions: hasEvidence ? 
+        'Evidence present but could be more specific and quantified.' :
+        'Add concrete examples, data, or case studies to support your points.'
+    };
+  }
+
+  private analyzePersuasiveness(transcript: string, overallScore: number): any {
+    const transcriptLower = transcript.toLowerCase();
+    const persuasiveElements = ['should', 'must', 'important', 'significant', 'critical', 'essential'];
+    const hasPersuasiveLanguage = persuasiveElements.some(word => transcriptLower.includes(word));
+    
+    const persuasionScore = Math.floor(overallScore / 15) + (hasPersuasiveLanguage ? 2 : 0);
+    const pointProven = persuasionScore > 6;
+    
+    const strengths = [];
+    const weaknesses = [];
+    
+    if (transcript.length > 100) strengths.push('Sufficient detail provided');
+    if (!transcriptLower.includes('um') && !transcriptLower.includes('uh')) strengths.push('Clear articulation');
+    if (hasPersuasiveLanguage) strengths.push('Uses persuasive language');
+    if (strengths.length === 0) strengths.push('Conversational tone');
+    
+    if (transcriptLower.includes('um') || transcriptLower.includes('uh')) weaknesses.push('Contains filler words');
+    if (!hasPersuasiveLanguage) weaknesses.push('Could use stronger persuasive language');
+    if (transcript.split(/[.!?]/).length < 2) weaknesses.push('Needs more detailed explanation');
+    
+    return {
+      pointProven,
+      persuasionScore: Math.min(10, persuasionScore),
+      strengths: strengths.slice(0, 3),
+      weaknesses: weaknesses.slice(0, 3),
+      improvements: pointProven ? 
+        'Strong foundation - enhance with more specific evidence.' :
+        'Strengthen your argument with clear evidence and confident language.'
+    };
+  }
+
+  private analyzeSTARMethod(transcriptLower: string, wordCount: number): any {
+    const situationWords = ['situation', 'context', 'background', 'when', 'where'];
+    const taskWords = ['task', 'goal', 'objective', 'needed', 'required'];
+    const actionWords = ['did', 'implemented', 'created', 'developed', 'action', 'approach'];
+    const resultWords = ['result', 'outcome', 'achieved', 'accomplished', 'success', 'impact'];
+    
+    const hasSituation = situationWords.some(word => transcriptLower.includes(word));
+    const hasTask = taskWords.some(word => transcriptLower.includes(word));
+    const hasAction = actionWords.some(word => transcriptLower.includes(word));
+    const hasResult = resultWords.some(word => transcriptLower.includes(word));
+    
+    const starElements = [hasSituation, hasTask, hasAction, hasResult].filter(Boolean).length;
+    const starScore = Math.floor((starElements / 4) * 10) + Math.floor(Math.random() * 3);
+    
+    return {
+      situation: hasSituation ? 
+        'Context is established with good background details' : 
+        'Situation needs more context and background information',
+      task: hasTask ? 
+        'Objective is clearly defined and understood' : 
+        'Task or goal should be more explicitly stated',
+      action: hasAction ? 
+        'Actions taken are described with good detail' : 
+        'Specific actions and approaches need more elaboration',
+      result: hasResult ? 
+        'Results are mentioned and quantified well' : 
+        'Outcomes and results need clearer measurement and impact',
+      overallStarScore: Math.min(10, Math.max(1, starScore))
+    };
+  }
+
+  private generateMainPointFeedback(clarity: number, fillerCount: number): string {
+    if (clarity >= 8) return 'Main point is very clear and well-articulated';
+    if (clarity >= 6) return 'Main point is reasonably clear but could be more focused';
+    if (fillerCount > 3) return 'Reduce filler words to improve main point clarity';
+    return 'Main point needs to be stated more clearly and directly';
   }
 }
 
