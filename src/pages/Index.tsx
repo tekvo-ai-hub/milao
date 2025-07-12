@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
 import RecordingHistory from '@/components/RecordingHistory';
+import ProgressReport from '@/components/ProgressReport';
 import Auth from '@/components/Auth';
 import LLMStatus from '@/components/LLMStatus';
 import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
@@ -100,12 +100,13 @@ const Index = () => {
   // Show loading state while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center">
         <div className="text-center">
-          <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mb-4 inline-block">
-            <Mic className="w-8 h-8 text-white" />
+          <div className="p-4 bg-gradient-to-r from-primary to-primary/80 rounded-2xl mb-4 inline-block shadow-[var(--shadow-glow)]">
+            <Mic className="w-8 h-8 text-primary-foreground" />
           </div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -304,7 +305,17 @@ const Index = () => {
           return;
         }
 
-        const audio = new Audio(data.signedUrl);
+        // Find or create audio element for this recording
+        let audio = document.getElementById(`audio-${id}`) as HTMLAudioElement;
+        if (!audio) {
+          audio = new Audio(data.signedUrl);
+          audio.id = `audio-${id}`;
+          audio.style.display = 'none';
+          document.body.appendChild(audio);
+        } else {
+          audio.src = data.signedUrl;
+        }
+
         audio.play().catch(err => {
           console.error('Error playing audio:', err);
           toast({
@@ -467,21 +478,24 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Header with user info */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full">
-                <Smartphone className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Modern Header */}
+        <div className="text-center mb-10">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="p-4 bg-gradient-to-r from-primary to-primary/80 rounded-2xl shadow-[var(--shadow-glow)]">
+                <Smartphone className="w-8 h-8 text-primary-foreground" />
               </div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Speech AI Coach
-              </h1>
+              <div className="text-left">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                  Speech AI Coach
+                </h1>
+                <p className="text-muted-foreground text-sm mt-1">Powered by AI</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-gray-600">
+              <div className="flex items-center space-x-2 text-muted-foreground bg-card/50 backdrop-blur-sm px-4 py-2 rounded-full border border-[var(--glass-border)]">
                 <User className="w-4 h-4" />
                 <span className="text-sm">{user.email}</span>
               </div>
@@ -489,127 +503,143 @@ const Index = () => {
                 variant="outline"
                 size="sm"
                 onClick={signOut}
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 bg-card/50 backdrop-blur-sm border-[var(--glass-border)]"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Sign Out</span>
               </Button>
             </div>
           </div>
-          <p className="text-gray-600 text-lg">
-            Record your speech and get instant AI-powered feedback to improve your communication skills
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Transform your communication skills with AI-powered speech analysis and personalized feedback
           </p>
         </div>
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="record" className="flex items-center space-x-2">
+          <TabsList className="grid w-full grid-cols-4 mb-8 bg-card/50 backdrop-blur-md border border-[var(--glass-border)] p-1 rounded-2xl">
+            <TabsTrigger value="record" className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Mic className="w-4 h-4" />
-              <span>Record/Upload</span>
+              <span>Record</span>
             </TabsTrigger>
-            <TabsTrigger value="analysis" className="flex items-center space-x-2" disabled={!currentAnalysis}>
-              <TrendingUp className="w-4 h-4" />
-              <span>Analysis</span>
-            </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center space-x-2">
+            <TabsTrigger value="history" className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <History className="w-4 h-4" />
               <span>History</span>
             </TabsTrigger>
+            <TabsTrigger value="progress" className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TrendingUp className="w-4 h-4" />
+              <span>Progress</span>
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" disabled={!currentAnalysis}>
+              <TrendingUp className="w-4 h-4" />
+              <span>Analysis</span>
+            </TabsTrigger>
           </TabsList>
 
-          {/* Record/Upload Tab */}
-          <TabsContent value="record" className="space-y-6">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-2">Ready to Practice?</h2>
-              <p className="text-gray-600">
-                Record yourself or upload an audio file to get detailed AI feedback
-              </p>
-            </div>
-            
-            {/* Method Selection */}
-            <div className="flex justify-center mb-6">
-              <div className="flex bg-muted rounded-lg p-1">
-                <Button
-                  variant={recordingMethod === 'record' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setRecordingMethod('record')}
-                  className="flex items-center gap-2"
-                >
-                  <Mic className="w-4 h-4" />
-                  Record Live
-                </Button>
-                <Button
-                  variant={recordingMethod === 'upload' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setRecordingMethod('upload')}
-                  className="flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload File
-                </Button>
-              </div>
-            </div>
-            
-            {/* Local LLM Status */}
-            <LLMStatus />
-            
-            {recordingMethod === 'record' ? (
-              <AudioRecorder onRecordingComplete={handleRecordingComplete} isAnalyzing={isAnalyzing} />
-            ) : (
-              <AudioUpload onFileSelect={handleFileUpload} isProcessing={isAnalyzing} />
-            )}
-            
-            {/* Quick Tips */}
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0">
-              <CardHeader>
-                <CardTitle className="text-lg">💡 Quick Tips for Better Results</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm">
-                  <li>• Speak in a quiet environment for better analysis</li>
-                  <li>• {recordingMethod === 'record' ? 'Record for at least 30 seconds' : 'Upload audio files up to 50MB'} to get comprehensive feedback</li>
-                  <li>• Speak naturally - pretend you're talking to a friend</li>
-                  <li>• Try different topics: presentations, casual conversations, or storytelling</li>
-                  {recordingMethod === 'upload' && <li>• Supported formats: MP3, WAV, WebM, M4A, OGG</li>}
-                </ul>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Analysis Tab */}
-          <TabsContent value="analysis" className="space-y-6">
-            {currentAnalysis ? (
-              <>
-                <div className="text-center mb-6">
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-2">Your Speech Analysis</h2>
-                  <p className="text-gray-600">
-                    Here's what our AI discovered about your speaking style
-                  </p>
-                </div>
-                <SpeechAnalysis analysis={currentAnalysis} duration={currentDuration} />
-              </>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-600 mb-2">No Analysis Yet</h3>
-                  <p className="text-gray-500">
-                    Record a speech first to see your detailed analysis here
-                  </p>
+          <TabsContent value="record" className="space-y-8">
+            <div className="flex flex-col space-y-8">
+              {/* Modern Recording Method Toggle */}
+              <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+                <CardHeader>
+                  <CardTitle className="text-xl">Choose Recording Method</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex space-x-3 mb-6">
+                    <Button
+                      variant={recordingMethod === 'record' ? 'default' : 'outline'}
+                      onClick={() => setRecordingMethod('record')}
+                      className={`flex items-center space-x-2 h-12 px-6 rounded-xl transition-all ${
+                        recordingMethod === 'record' 
+                          ? 'bg-gradient-to-r from-primary to-primary/80 shadow-[var(--shadow-glow)]' 
+                          : 'border-[var(--glass-border)] bg-card/30 hover:bg-card/50'
+                      }`}
+                    >
+                      <Mic className="w-5 h-5" />
+                      <span className="font-medium">Live Recording</span>
+                    </Button>
+                    <Button
+                      variant={recordingMethod === 'upload' ? 'default' : 'outline'}
+                      onClick={() => setRecordingMethod('upload')}
+                      className={`flex items-center space-x-2 h-12 px-6 rounded-xl transition-all ${
+                        recordingMethod === 'upload' 
+                          ? 'bg-gradient-to-r from-primary to-primary/80 shadow-[var(--shadow-glow)]' 
+                          : 'border-[var(--glass-border)] bg-card/30 hover:bg-card/50'
+                      }`}
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span className="font-medium">Upload File</span>
+                    </Button>
+                  </div>
+                  
+                  {/* Enhanced dynamic tips */}
+                  <div className="p-6 bg-gradient-to-r from-primary/5 to-primary/10 rounded-2xl border border-primary/20">
+                    <h4 className="font-semibold text-foreground mb-3 flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>{recordingMethod === 'record' ? 'Recording Tips' : 'Upload Guidelines'}</span>
+                    </h4>
+                    <ul className="text-sm text-muted-foreground space-y-2">
+                      {recordingMethod === 'record' ? (
+                        <>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>Speak clearly and maintain natural pace</span>
+                          </li>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>Choose a quiet environment</span>
+                          </li>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>Maximum duration: 5 minutes</span>
+                          </li>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>Use pause/resume for better control</span>
+                          </li>
+                        </>
+                      ) : (
+                        <>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>Formats: MP3, WAV, WebM, M4A, OGG</span>
+                          </li>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>Maximum size: 50MB</span>
+                          </li>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>Optimal duration: 1-5 minutes</span>
+                          </li>
+                          <li className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <span>High quality audio improves accuracy</span>
+                          </li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
                 </CardContent>
               </Card>
-            )}
+
+              {/* Recording Interface */}
+              {recordingMethod === 'record' ? (
+                <AudioRecorder
+                  onRecordingComplete={handleRecordingComplete}
+                  isAnalyzing={isAnalyzing}
+                />
+              ) : (
+                <AudioUpload
+                  onUpload={handleFileUpload}
+                  isAnalyzing={isAnalyzing}
+                />
+              )}
+              
+              <LLMStatus />
+            </div>
           </TabsContent>
 
-          {/* History Tab */}
-          <TabsContent value="history" className="space-y-6">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-2">Recording History</h2>
-              <p className="text-gray-600">
-                Track your progress over time and review past analyses
-              </p>
-            </div>
+          <TabsContent value="history">
             <RecordingHistory
               recordings={recordings}
               onPlay={handlePlayRecording}
@@ -617,7 +647,34 @@ const Index = () => {
               onViewAnalysis={handleViewAnalysis}
               onReEvaluate={handleReEvaluate}
               isReEvaluating={isReEvaluating}
+              isLoading={loadingRecordings}
             />
+          </TabsContent>
+
+          <TabsContent value="progress">
+            <ProgressReport recordings={recordings} />
+          </TabsContent>
+
+          <TabsContent value="analysis">
+            {currentAnalysis ? (
+              <SpeechAnalysis analysis={currentAnalysis} duration={currentDuration} />
+            ) : (
+              <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+                <CardContent className="p-12 text-center">
+                  <TrendingUp className="w-16 h-16 text-muted-foreground mx-auto mb-6 opacity-50" />
+                  <h3 className="text-xl font-medium text-foreground mb-3">No Analysis Available</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Record or upload an audio file to see detailed speech analysis
+                  </p>
+                  <Button 
+                    onClick={() => setActiveTab('record')}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                  >
+                    Start Recording
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
