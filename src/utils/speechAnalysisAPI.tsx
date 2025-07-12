@@ -16,8 +16,9 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   console.log('Starting speech analysis with local LLM...');
   
   // Mock analysis based on duration and random factors for demo
-  const estimatedWords = Math.floor(duration * 2.5); // Rough estimate
-  const wpm = Math.floor(estimatedWords / (duration / 60));
+  const safeDuration = Math.max(1, duration); // Prevent division by zero
+  const estimatedWords = Math.max(1, Math.floor(safeDuration * 2.5)); // Rough estimate
+  const wpm = Math.floor(estimatedWords / (safeDuration / 60));
   
   const fillerCount = Math.floor(Math.random() * 5) + 1;
   const fillerPercentage = ((fillerCount / estimatedWords) * 100).toFixed(1);
@@ -27,12 +28,18 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   const assessments = ['Too slow', 'Perfect pace', 'Slightly fast', 'Too fast', 'Natural pace'];
   
   const clarityScore = Math.floor(Math.random() * 30) + 70;
-  const overallScore = Math.floor((clarityScore + Math.min(100, Math.max(60, 150 - Math.abs(wpm - 150) * 2))) / 2);
+  const paceScore = Math.min(100, Math.max(60, 150 - Math.abs(wpm - 150) * 2));
+  const overallScore = Math.floor((clarityScore + paceScore) / 2);
   
-  // Ensure score is never NaN
-  const validOverallScore = isNaN(overallScore) ? 75 : overallScore;
-  
-  console.log('Analysis Debug - Duration:', duration, 'Overall Score:', validOverallScore, 'Clarity:', clarityScore);
+  console.log('Analysis Debug:', { 
+    originalDuration: duration,
+    safeDuration, 
+    estimatedWords, 
+    wpm, 
+    clarityScore, 
+    paceScore, 
+    overallScore 
+  });
   
   const primaryTone = tones[Math.floor(Math.random() * tones.length)];
   const fillerWords = ['um', 'uh', 'like', 'you know'].slice(0, fillerCount);
@@ -41,7 +48,7 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   const mockTranscript = "I think that, um, the project is going really well and, uh, we should consider implementing these new features. Like, it would be good to get feedback from users about what they want to see next.";
   
   const mockResult: AnalysisResult = {
-    overall_score: validOverallScore,
+    overall_score: overallScore,
     clarity_score: clarityScore,
     transcript: mockTranscript,
     pace_analysis: {
@@ -75,7 +82,7 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
     console.log('Analyzing with local LLM...');
     const aiSuggestions = await localLLMService.analyzeSpeech(
       mockTranscript,
-      validOverallScore,
+      overallScore,
       clarityScore,
       fillerWords,
       primaryTone
