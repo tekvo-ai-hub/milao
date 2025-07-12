@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus } from 'lucide-react';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain } from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
@@ -40,6 +40,7 @@ const Index = () => {
   const [isReEvaluating, setIsReEvaluating] = useState<string | null>(null);
   const [recordingMethod, setRecordingMethod] = useState<'record' | 'upload'>('record');
   const [showHeader, setShowHeader] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
@@ -552,18 +553,37 @@ const Index = () => {
                   </Button>
                 </div>
               </div>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-6">
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
                 Transform your communication skills with AI-powered speech analysis and personalized feedback
               </p>
-              
-              {/* Local AI Status */}
-              <LLMStatus />
             </CollapsibleContent>
           </div>
         </Collapsible>
 
         {/* Collapsible Sections */}
         <div className="space-y-4">
+          {/* Enable Local AI Section */}
+          <Collapsible open={aiOpen} onOpenChange={setAiOpen}>
+            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Brain className="w-5 h-5 text-primary" />
+                      <span>Enable Local AI</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${aiOpen ? 'rotate-180' : ''}`} />
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent>
+                  <LLMStatus />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
           {/* Record Section */}
           <Collapsible open={recordOpen} onOpenChange={setRecordOpen}>
             <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
