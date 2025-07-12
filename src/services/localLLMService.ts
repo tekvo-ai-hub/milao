@@ -708,7 +708,7 @@ Format your response clearly with these sections.`;
       mainPoint: {
         identified: mainPoint,
         clarity: mainPointClarity,
-        feedback: this.generateMainPointFeedback(mainPointClarity, fillerWords.length)
+        feedback: this.generateMainPointFeedback(mainPointClarity, fillerWords.length, transcript)
       },
       argumentStructure: structureAnalysis,
       evidenceAndExamples: evidenceAnalysis,
@@ -718,18 +718,36 @@ Format your response clearly with these sections.`;
   }
 
   private identifyMainPoint(sentences: string[], transcript: string): string {
-    if (sentences.length === 0) return "No clear main point identified";
+    if (sentences.length === 0) return "No clear main point identified in the speech";
     
-    // Look for the longest, most substantive sentence as likely main point
+    // Filter out very short sentences and filler statements
     const substantiveSentences = sentences
-      .filter(s => s.trim().length > 20)
-      .sort((a, b) => b.length - a.length);
+      .filter(s => {
+        const cleaned = s.trim().replace(/[^\w\s]/g, '');
+        return cleaned.length > 15 && 
+               !cleaned.toLowerCase().match(/^(um|uh|so|like|you know|basically|actually)/) &&
+               cleaned.split(' ').length > 3;
+      })
+      .sort((a, b) => {
+        // Prioritize sentences with key action words or objectives
+        const aHasKeywords = /\b(will|should|need|goal|plan|important|focus|key|main|primary)\b/i.test(a);
+        const bHasKeywords = /\b(will|should|need|goal|plan|important|focus|key|main|primary)\b/i.test(b);
+        
+        if (aHasKeywords && !bHasKeywords) return -1;
+        if (!aHasKeywords && bHasKeywords) return 1;
+        
+        // Then by length for substance
+        return b.length - a.length;
+      });
     
     if (substantiveSentences.length > 0) {
-      return substantiveSentences[0].trim().substring(0, 100) + (substantiveSentences[0].length > 100 ? '...' : '');
+      const mainPoint = substantiveSentences[0].trim();
+      return mainPoint.length > 120 ? mainPoint.substring(0, 120) + '...' : mainPoint;
     }
     
-    return sentences[0]?.trim().substring(0, 100) + (sentences[0]?.length > 100 ? '...' : '') || "Brief discussion point";
+    // Fallback: use the longest sentence overall
+    const fallbackSentence = sentences.sort((a, b) => b.length - a.length)[0]?.trim() || "Brief discussion point";
+    return fallbackSentence.length > 120 ? fallbackSentence.substring(0, 120) + '...' : fallbackSentence;
   }
 
   private calculateMainPointClarity(transcript: string, clarityScore: number): number {
@@ -917,11 +935,12 @@ Format your response clearly with these sections.`;
     return selectedOptions[Math.floor(Math.random() * selectedOptions.length)];
   }
 
-  private generateMainPointFeedback(clarity: number, fillerCount: number): string {
-    if (clarity >= 8) return 'Main point is very clear and well-articulated';
-    if (clarity >= 6) return 'Main point is reasonably clear but could be more focused';
-    if (fillerCount > 3) return 'Reduce filler words to improve main point clarity';
-    return 'Main point needs to be stated more clearly and directly';
+  private generateMainPointFeedback(clarity: number, fillerCount: number, transcript?: string): string {
+    if (clarity >= 8) return 'Main point is very clear and well-articulated with strong focus';
+    if (clarity >= 6) return 'Main point is reasonably clear but could be more focused and direct';
+    if (fillerCount > 3) return 'Reduce filler words to improve main point clarity and impact';
+    if (transcript && transcript.length < 50) return 'Expand on the main point with more detail and supporting information';
+    return 'Main point needs to be stated more clearly and directly with better structure';
   }
 
   private generateSpeechSummary(transcript: string): string {

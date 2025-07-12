@@ -27,10 +27,15 @@ const ContentEvaluation: React.FC<ContentEvaluationProps> = ({ evaluation }) => 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <div>
-              <h4 className="font-medium text-sm text-gray-700 mb-1">Key Message:</h4>
-              <p className="text-sm bg-blue-50 p-2 rounded">{evaluation.mainPoint.identified}</p>
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center">
+                <Target className="w-4 h-4 mr-2" />
+                Key Message Identified:
+              </h4>
+              <p className="text-sm leading-relaxed text-blue-800 dark:text-blue-200 italic">
+                "{evaluation.mainPoint.identified}"
+              </p>
             </div>
             <div className="flex items-center space-x-3">
               <span className="text-sm font-medium">Clarity Score:</span>

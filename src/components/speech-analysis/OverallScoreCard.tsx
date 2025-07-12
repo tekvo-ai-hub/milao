@@ -9,6 +9,9 @@ interface OverallScoreCardProps {
 }
 
 const OverallScoreCard: React.FC<OverallScoreCardProps> = ({ score, duration }) => {
+  // Ensure score is valid and fallback to 0 if not
+  const validScore = typeof score === 'number' && !isNaN(score) ? Math.round(score) : 0;
+  
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
     if (score >= 60) return 'text-yellow-600';
@@ -40,15 +43,15 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({ score, duration }) 
       <CardContent className="pt-0">
         <div className="flex flex-col items-center space-y-6">
           <div className="relative">
-            <div className={`text-6xl font-bold ${getScoreColor(score)} drop-shadow-sm`}>
-              {score}
+            <div className={`text-6xl font-bold ${getScoreColor(validScore)} drop-shadow-sm`}>
+              {validScore}
             </div>
             <div className="absolute -top-2 -right-4">
-              {getScoreIcon(score)}
+              {getScoreIcon(validScore)}
             </div>
           </div>
           <div className="w-full max-w-md">
-            <Progress value={score} className="h-4 shadow-inner" />
+            <Progress value={validScore} className="h-4 shadow-inner" />
             <div className="flex justify-between text-sm text-muted-foreground mt-2">
               <span>0</span>
               <span>100</span>
