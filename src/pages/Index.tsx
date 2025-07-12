@@ -498,6 +498,16 @@ const Index = () => {
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Modern Header */}
         <div className="text-center mb-10">
+          {/* Mobile AI Enhancement Notice */}
+          <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Smartphone className="w-5 h-5 text-primary" />
+              <span className="font-semibold text-primary">Mobile Speech Analysis</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Enable Local AI for enhanced analysis and better privacy. Switch to the AI tab to initialize your local model for improved speech insights.
+            </p>
+          </div>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <div className="p-4 bg-gradient-to-r from-primary to-primary/80 rounded-2xl shadow-[var(--shadow-glow)]">
