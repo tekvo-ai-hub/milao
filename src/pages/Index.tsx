@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain } from 'lucide-react';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText } from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
@@ -11,6 +11,7 @@ import RecordingHistory from '@/components/RecordingHistory';
 import ProgressReport from '@/components/ProgressReport';
 import Auth from '@/components/Auth';
 import LLMStatus from '@/components/LLMStatus';
+import TextAnalytics from '@/components/TextAnalytics';
 import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,7 +46,9 @@ const Index = () => {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [textAnalyticsOpen, setTextAnalyticsOpen] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
+  const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const { toast } = useToast();
 
   // Fetch recordings when user is authenticated
@@ -126,6 +129,7 @@ const Index = () => {
   }
 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
+    setCurrentAudioBlob(audioBlob);
     setIsAnalyzing(true);
     try {
       console.log('Recording Complete Debug:', { duration, audioBlobSize: audioBlob.size });
@@ -215,6 +219,7 @@ const Index = () => {
     try {
       // Convert file to blob for analysis
       const audioBlob = new Blob([await file.arrayBuffer()], { type: file.type });
+      setCurrentAudioBlob(audioBlob);
       
       // Get audio duration
       const audio = new Audio();
@@ -579,6 +584,33 @@ const Index = () => {
               <CollapsibleContent>
                 <CardContent>
                   <LLMStatus />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
+          {/* Text Analytics Section */}
+          <Collapsible open={textAnalyticsOpen} onOpenChange={setTextAnalyticsOpen}>
+            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="w-5 h-5 text-primary" />
+                      <span>Text Analytics</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${textAnalyticsOpen ? 'rotate-180' : ''}`} />
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent>
+                  <TextAnalytics 
+                    audioBlob={currentAudioBlob || undefined} 
+                    onTranscriptGenerated={(transcript) => {
+                      console.log('Transcript generated:', transcript);
+                    }}
+                  />
                 </CardContent>
               </CollapsibleContent>
             </Card>
