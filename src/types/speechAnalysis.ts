@@ -55,6 +55,7 @@ export interface AISuggestions {
   phraseAlternatives: PhraseAlternative[];
   vocabularyEnhancement: VocabularyEnhancement[];
   contentEvaluation?: ContentEvaluation;
+  speechSummary?: string;
 }
 
 export interface AnalysisResult {

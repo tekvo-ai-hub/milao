@@ -337,13 +337,13 @@ Format your response clearly with these sections.`;
     const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
     
     // Dynamic word improvements based on actual content
-    const wordImprovements = this.findWordImprovements(transcript, transcriptLower);
+    const wordImprovements = this.generateContextualWordImprovements(transcript);
     
     // Dynamic phrase alternatives based on actual phrases found
-    const phraseAlternatives = this.findPhraseAlternatives(transcript, transcriptLower);
+    const phraseAlternatives = this.generateContextualPhraseAlternatives(transcript);
     
     // Dynamic vocabulary enhancement based on content analysis
-    const vocabularyEnhancement = this.generateVocabularyEnhancement(transcript, primaryTone);
+    const vocabularyEnhancement = this.generateContextualVocabularyEnhancement(transcript);
     
     // Content evaluation with varied scores based on actual content
     const contentEvaluation = this.generateDynamicContentEvaluation(
@@ -355,146 +355,331 @@ Format your response clearly with these sections.`;
       fillerWords
     );
 
+    // Generate speech summary
+    const speechSummary = this.generateSpeechSummary(transcript);
+
     return {
       wordImprovements,
       phraseAlternatives,
       vocabularyEnhancement,
-      contentEvaluation
+      contentEvaluation,
+      speechSummary
     };
   }
 
-  private findWordImprovements(transcript: string, transcriptLower: string): Array<{original: string; suggestions: string[]; context: string}> {
+  private generateContextualWordImprovements(transcript: string): Array<{original: string; suggestions: string[]; context: string}> {
     const improvements = [];
-    const commonReplacements = {
-      'good': ['excellent', 'outstanding', 'effective', 'superior', 'remarkable'],
-      'bad': ['poor', 'inadequate', 'substandard', 'problematic', 'unsatisfactory'],
-      'nice': ['pleasant', 'appealing', 'satisfactory', 'delightful', 'agreeable'],
-      'big': ['substantial', 'significant', 'considerable', 'extensive', 'massive'],
-      'small': ['minor', 'minimal', 'compact', 'modest', 'limited'],
-      'things': ['aspects', 'elements', 'components', 'factors', 'issues'],
-      'stuff': ['items', 'materials', 'concepts', 'matters', 'elements'],
-      'get': ['obtain', 'acquire', 'secure', 'achieve', 'receive'],
-      'make': ['create', 'develop', 'establish', 'generate', 'construct'],
-      'do': ['execute', 'perform', 'accomplish', 'implement', 'undertake'],
-      'very': ['extremely', 'significantly', 'considerably', 'remarkably', 'exceptionally'],
-      'really': ['genuinely', 'truly', 'substantially', 'remarkably', 'particularly']
-    };
+    const words = transcript.toLowerCase().split(/\s+/);
+    
+    // Analyze content theme for context-aware suggestions
+    const isBusinessContext = /project|business|company|meeting|strategy|goal/i.test(transcript);
+    const isTechnicalContext = /implement|feature|system|develop|code|software/i.test(transcript);
+    const isPresentationContext = /present|audience|show|explain|demonstrate/i.test(transcript);
+    
+    // Find actual words in the transcript and provide context-specific alternatives
+    const uniqueWords = new Set(words.map(w => w.replace(/[^\w]/g, '')).filter(w => w.length > 2));
+    
+    const contextualReplacements: Record<string, string[]> = {};
+    
+    uniqueWords.forEach(word => {
+      let alternatives: string[] = [];
+      
+      switch(word) {
+        case 'good':
+          alternatives = isBusinessContext ? ['profitable', 'successful', 'effective'] :
+                       isTechnicalContext ? ['functional', 'optimized', 'efficient'] :
+                       ['excellent', 'outstanding', 'remarkable'];
+          break;
+        case 'project':
+          alternatives = isBusinessContext ? ['initiative', 'venture', 'endeavor'] :
+                       isTechnicalContext ? ['application', 'system', 'solution'] :
+                       ['undertaking', 'assignment', 'task'];
+          break;
+        case 'think':
+          alternatives = isPresentationContext ? ['believe', 'propose', 'suggest'] :
+                       isBusinessContext ? ['recommend', 'advise', 'conclude'] :
+                       ['consider', 'assess', 'evaluate'];
+          break;
+        case 'implement':
+          alternatives = isTechnicalContext ? ['deploy', 'execute', 'integrate'] :
+                       isBusinessContext ? ['execute', 'launch', 'initiate'] :
+                       ['establish', 'introduce', 'apply'];
+          break;
+        case 'features':
+          alternatives = isTechnicalContext ? ['capabilities', 'functionalities', 'components'] :
+                       isBusinessContext ? ['offerings', 'benefits', 'advantages'] :
+                       ['characteristics', 'elements', 'aspects'];
+          break;
+        case 'users':
+          alternatives = isBusinessContext ? ['clients', 'customers', 'stakeholders'] :
+                       isTechnicalContext ? ['end-users', 'operators', 'consumers'] :
+                       ['participants', 'individuals', 'people'];
+          break;
+        case 'feedback':
+          alternatives = isBusinessContext ? ['input', 'insights', 'recommendations'] :
+                       isTechnicalContext ? ['responses', 'evaluations', 'assessments'] :
+                       ['comments', 'suggestions', 'opinions'];
+          break;
+        case 'really':
+          alternatives = isPresentationContext ? ['genuinely', 'truly', 'certainly'] :
+                       isBusinessContext ? ['significantly', 'substantially', 'considerably'] :
+                       ['exceptionally', 'remarkably', 'particularly'];
+          break;
+        case 'well':
+          alternatives = isBusinessContext ? ['successfully', 'effectively', 'profitably'] :
+                       isTechnicalContext ? ['efficiently', 'optimally', 'smoothly'] :
+                       ['excellently', 'admirably', 'successfully'];
+          break;
+        case 'next':
+          alternatives = isBusinessContext ? ['subsequent', 'forthcoming', 'upcoming'] :
+                       isTechnicalContext ? ['following', 'subsequent', 'ensuing'] :
+                       ['subsequent', 'following', 'upcoming'];
+          break;
+      }
+      
+      if (alternatives.length > 0) {
+        contextualReplacements[word] = alternatives;
+      }
+    });
 
-    for (const [word, suggestions] of Object.entries(commonReplacements)) {
-      const regex = new RegExp(`\\b${word}\\b`, 'gi');
-      const matches = transcript.match(regex);
-      if (matches && matches.length > 0) {
-        // Find context for the word
-        const contextMatch = transcript.match(new RegExp(`[^.!?]*\\b${word}\\b[^.!?]*`, 'i'));
-        const context = contextMatch ? contextMatch[0].trim() : `Usage of "${word}"`;
-        
+    // Find words in transcript and suggest improvements
+    words.forEach((word, index) => {
+      const cleanWord = word.replace(/[^\w]/g, '').toLowerCase();
+      if (contextualReplacements[cleanWord]) {
+        const context = words.slice(Math.max(0, index - 3), index + 4).join(' ');
         improvements.push({
-          original: matches[0], // Keep original case
-          suggestions: suggestions.slice(0, 3), // Limit to 3 suggestions
-          context: `In context: "${context.length > 60 ? context.substring(0, 60) + '...' : context}"`
+          original: word,
+          suggestions: contextualReplacements[cleanWord],
+          context: `"...${context}..."`
         });
       }
-    }
+    });
 
-    return improvements.slice(0, 4); // Limit to 4 improvements
+    return improvements.slice(0, 4); // Return most relevant
   }
 
-  private findPhraseAlternatives(transcript: string, transcriptLower: string): Array<{original: string; alternatives: string[]; improvement: string}> {
+  private generateContextualPhraseAlternatives(transcript: string): Array<{original: string; alternatives: string[]; improvement: string}> {
     const alternatives = [];
-    const phraseReplacements = [
-      {
-        patterns: ['i think that', 'i think'],
-        alternatives: ['In my analysis', 'Based on my assessment', 'My evaluation indicates', 'From my perspective'],
-        improvement: 'Use more confident, assertive language'
-      },
-      {
-        patterns: ['you know', 'you know what i mean'],
-        alternatives: ['Specifically', 'To clarify', 'More precisely', 'In particular'],
-        improvement: 'Replace filler phrases with specific clarifications'
-      },
-      {
-        patterns: ['kind of', 'sort of'],
-        alternatives: ['somewhat', 'partially', 'to some extent', 'moderately'],
-        improvement: 'Use more precise qualifiers'
-      },
-      {
-        patterns: ['at the end of the day'],
-        alternatives: ['Ultimately', 'In conclusion', 'Most importantly', 'The key point is'],
-        improvement: 'Use more professional concluding phrases'
-      },
-      {
-        patterns: ['a lot of'],
-        alternatives: ['numerous', 'many', 'significant amounts of', 'substantial'],
-        improvement: 'Use more specific quantifiers'
+    
+    // Content-aware phrase detection and replacement
+    const contentThemes = {
+      business: /project|business|team|goal|strategy|meeting/i.test(transcript),
+      technical: /feature|implement|system|develop|code|software/i.test(transcript),
+      presentation: /present|show|explain|audience|demonstrate/i.test(transcript),
+      planning: /consider|should|would|plan|next|future/i.test(transcript)
+    };
+    
+    // Extract actual phrases from the transcript
+    const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase().trim();
+      
+      // Dynamic phrase alternatives based on actual content
+      if (lowerSentence.includes('i think')) {
+        const contextAlts = contentThemes.business ? ['I recommend', 'My analysis suggests', 'Based on our data'] :
+                           contentThemes.technical ? ['I propose', 'The optimal solution is', 'I suggest'] :
+                           contentThemes.presentation ? ['I believe', 'Research indicates', 'Evidence shows'] :
+                           ['I conclude', 'My assessment is', 'I contend'];
+        
+        alternatives.push({
+          original: 'I think',
+          alternatives: contextAlts,
+          improvement: 'Demonstrates confidence and expertise in your field'
+        });
       }
-    ];
-
-    for (const replacement of phraseReplacements) {
-      for (const pattern of replacement.patterns) {
-        if (transcriptLower.includes(pattern)) {
-          // Find the actual phrase in original case
-          const regex = new RegExp(pattern.replace(/\s+/g, '\\s+'), 'gi');
-          const match = transcript.match(regex);
-          if (match) {
-            alternatives.push({
-              original: match[0],
-              alternatives: replacement.alternatives.slice(0, 3),
-              improvement: replacement.improvement
-            });
-            break; // Only add once per pattern group
-          }
-        }
+      
+      if (lowerSentence.includes('we should') || lowerSentence.includes('should')) {
+        const contextAlts = contentThemes.business ? ['We must prioritize', 'Our strategy should focus on', 'I recommend we'] :
+                           contentThemes.technical ? ['The implementation requires', 'We need to', 'The solution involves'] :
+                           contentThemes.planning ? ['Our next step is to', 'The priority is to', 'We must'] :
+                           ['It\'s essential to', 'The key is to', 'We must'];
+        
+        alternatives.push({
+          original: 'should',
+          alternatives: contextAlts,
+          improvement: 'Creates urgency and clear direction'
+        });
       }
-    }
+      
+      if (lowerSentence.includes('going well') || lowerSentence.includes('doing well')) {
+        const contextAlts = contentThemes.business ? ['exceeding targets', 'showing strong ROI', 'delivering results'] :
+                           contentThemes.technical ? ['functioning optimally', 'performing efficiently', 'meeting specifications'] :
+                           ['progressing successfully', 'achieving objectives', 'showing positive outcomes'];
+        
+        alternatives.push({
+          original: 'going well',
+          alternatives: contextAlts,
+          improvement: 'Provides specific, measurable success indicators'
+        });
+      }
+      
+      if (lowerSentence.includes('it would be good') || lowerSentence.includes('would be good')) {
+        const contextAlts = contentThemes.business ? ['This would drive growth', 'This strategy would increase', 'This approach would optimize'] :
+                           contentThemes.technical ? ['This would enhance performance', 'This solution would improve', 'This would streamline'] :
+                           ['This would significantly improve', 'This approach would enhance', 'This would effectively'];
+        
+        alternatives.push({
+          original: 'would be good',
+          alternatives: contextAlts,
+          improvement: 'Specifies concrete benefits and outcomes'
+        });
+      }
+      
+      // Remove filler words with context-appropriate replacements
+      if (lowerSentence.includes('like,') || lowerSentence.includes('you know')) {
+        alternatives.push({
+          original: 'like, / you know',
+          alternatives: ['For example,', 'Specifically,', 'To illustrate,', 'Consider this:'],
+          improvement: 'Eliminates filler words and adds precision'
+        });
+      }
+    });
 
-    return alternatives.slice(0, 3);
+    return alternatives.slice(0, 4); // Return most relevant phrase improvements
   }
 
-  private generateVocabularyEnhancement(transcript: string, primaryTone: string): Array<{category: string; suggestions: string[]; usage: string}> {
+  private generateContextualVocabularyEnhancement(transcript: string): Array<{category: string; suggestions: string[]; usage: string}> {
     const enhancements = [];
-    const transcriptLower = transcript.toLowerCase();
+    const words = transcript.toLowerCase().split(/\s+/).map(w => w.replace(/[^\w]/g, ''));
     
-    // Business/Professional context
-    if (transcriptLower.includes('work') || transcriptLower.includes('project') || transcriptLower.includes('business') || primaryTone === 'Professional') {
-      enhancements.push({
-        category: 'Professional terminology',
-        suggestions: ['optimize', 'streamline', 'facilitate', 'implement', 'leverage', 'strategize'],
-        usage: 'Enhance your professional communication with precise business language'
-      });
-    }
-
-    // Technical context
-    if (transcriptLower.includes('system') || transcriptLower.includes('process') || transcriptLower.includes('technology')) {
-      enhancements.push({
-        category: 'Technical precision',
-        suggestions: ['systematically', 'methodology', 'framework', 'protocol', 'integration'],
-        usage: 'Use technical terms to demonstrate expertise and precision'
-      });
-    }
-
-    // Always include transition words if speech lacks structure
-    const hasTransitions = ['however', 'furthermore', 'therefore', 'meanwhile', 'consequently'].some(
-      word => transcriptLower.includes(word)
-    );
+    // Analyze actual content for targeted vocabulary suggestions
+    const contentAnalysis = {
+      topics: this.extractTopics(transcript),
+      complexity: this.assessVocabularyLevel(words),
+      industryContext: this.detectIndustryContext(transcript)
+    };
     
-    if (!hasTransitions) {
+    // Generate context-specific vocabulary enhancements
+    if (contentAnalysis.industryContext.includes('technology')) {
       enhancements.push({
-        category: 'Transition words',
-        suggestions: ['furthermore', 'consequently', 'nevertheless', 'meanwhile', 'specifically'],
-        usage: 'Improve speech flow and logical connections between ideas'
+        category: 'Technical Precision',
+        suggestions: this.getTechnicalVocabulary(transcript),
+        usage: 'Use technical terms that demonstrate expertise in software development and user experience'
+      });
+    }
+    
+    if (contentAnalysis.industryContext.includes('business')) {
+      enhancements.push({
+        category: 'Business Leadership',
+        suggestions: this.getBusinessVocabulary(transcript),
+        usage: 'Incorporate strategic language that shows business acumen and leadership thinking'
+      });
+    }
+    
+    if (contentAnalysis.complexity === 'basic') {
+      enhancements.push({
+        category: 'Professional Elevation',
+        suggestions: this.getProfessionalVocabulary(transcript),
+        usage: 'Replace common words with more sophisticated alternatives that match your content'
+      });
+    }
+    
+    // Add content-specific enhancement based on actual topics discussed
+    const topicSuggestions = this.getTopicSpecificVocabulary(contentAnalysis.topics, transcript);
+    if (topicSuggestions.length > 0) {
+      enhancements.push({
+        category: `${contentAnalysis.topics[0]} Vocabulary`,
+        suggestions: topicSuggestions,
+        usage: `Enhance your discussion of ${contentAnalysis.topics[0].toLowerCase()} with industry-specific terminology`
       });
     }
 
-    // Emotional/persuasive context
-    if (primaryTone === 'Enthusiastic' || primaryTone === 'Passionate' || transcriptLower.includes('feel') || transcriptLower.includes('believe')) {
-      enhancements.push({
-        category: 'Persuasive language',
-        suggestions: ['compelling', 'convincing', 'impactful', 'significant', 'transformative'],
-        usage: 'Strengthen emotional appeal and persuasive impact'
-      });
-    }
+    return enhancements.slice(0, 3); // Return top 3 most relevant enhancements
+  }
 
-    return enhancements.slice(0, 3);
+  private extractTopics(transcript: string): string[] {
+    const topics = [];
+    
+    if (/project|development|feature|software|system/i.test(transcript)) topics.push('Project Development');
+    if (/user|customer|feedback|experience/i.test(transcript)) topics.push('User Experience');
+    if (/business|strategy|goal|growth|success/i.test(transcript)) topics.push('Business Strategy');
+    if (/team|collaboration|meeting|communication/i.test(transcript)) topics.push('Team Management');
+    if (/implement|technology|solution|innovation/i.test(transcript)) topics.push('Technology Implementation');
+    
+    return topics.length > 0 ? topics : ['General Communication'];
+  }
+
+  private detectIndustryContext(transcript: string): string[] {
+    const contexts = [];
+    
+    if (/feature|implement|code|software|system|development|technical/i.test(transcript)) contexts.push('technology');
+    if (/project|business|strategy|goal|team|meeting|growth/i.test(transcript)) contexts.push('business');
+    if (/user|customer|feedback|experience|design/i.test(transcript)) contexts.push('product');
+    if (/present|audience|show|explain|demonstrate/i.test(transcript)) contexts.push('presentation');
+    
+    return contexts.length > 0 ? contexts : ['general'];
+  }
+
+  private getTechnicalVocabulary(transcript: string): string[] {
+    const suggestions = [];
+    
+    if (/feature/i.test(transcript)) suggestions.push('functionality', 'capability', 'component');
+    if (/implement/i.test(transcript)) suggestions.push('deploy', 'integrate', 'architect');
+    if (/user/i.test(transcript)) suggestions.push('end-user', 'stakeholder', 'client');
+    if (/system/i.test(transcript)) suggestions.push('infrastructure', 'platform', 'framework');
+    if (/improve/i.test(transcript)) suggestions.push('optimize', 'enhance', 'refactor');
+    
+    return suggestions.length > 0 ? suggestions : ['scalable', 'robust', 'efficient', 'streamlined'];
+  }
+
+  private getBusinessVocabulary(transcript: string): string[] {
+    const suggestions = [];
+    
+    if (/project/i.test(transcript)) suggestions.push('initiative', 'venture', 'strategic endeavor');
+    if (/goal/i.test(transcript)) suggestions.push('objective', 'target', 'milestone');
+    if (/success/i.test(transcript)) suggestions.push('achievement', 'ROI', 'performance metrics');
+    if (/team/i.test(transcript)) suggestions.push('stakeholders', 'cross-functional team', 'resources');
+    if (/growth/i.test(transcript)) suggestions.push('expansion', 'scalability', 'market penetration');
+    
+    return suggestions.length > 0 ? suggestions : ['strategic', 'revenue-driven', 'performance-oriented', 'results-focused'];
+  }
+
+  private getProfessionalVocabulary(transcript: string): string[] {
+    const suggestions = [];
+    
+    if (/good/i.test(transcript)) suggestions.push('effective', 'superior', 'exceptional');
+    if (/think/i.test(transcript)) suggestions.push('conclude', 'recommend', 'propose');
+    if (/should/i.test(transcript)) suggestions.push('must prioritize', 'requires', 'necessitates');
+    if (/really/i.test(transcript)) suggestions.push('significantly', 'substantially', 'considerably');
+    if (/important/i.test(transcript)) suggestions.push('critical', 'essential', 'paramount');
+    
+    return suggestions.length > 0 ? suggestions : ['professional', 'strategic', 'comprehensive', 'systematic'];
+  }
+
+  private getTopicSpecificVocabulary(topics: string[], transcript: string): string[] {
+    const mainTopic = topics[0];
+    
+    switch (mainTopic) {
+      case 'Project Development':
+        return ['agile methodology', 'sprint planning', 'deliverables', 'project lifecycle'];
+      case 'User Experience':
+        return ['user journey', 'pain points', 'usability testing', 'user-centric design'];
+      case 'Business Strategy':
+        return ['value proposition', 'competitive advantage', 'market positioning', 'strategic alignment'];
+      case 'Team Management':
+        return ['cross-functional collaboration', 'resource allocation', 'performance optimization', 'team dynamics'];
+      case 'Technology Implementation':
+        return ['technical architecture', 'system integration', 'deployment strategy', 'technical specifications'];
+      default:
+        return ['professional standards', 'best practices', 'industry benchmarks', 'quality assurance'];
+    }
+  }
+
+  private assessVocabularyLevel(words: string[]): 'basic' | 'intermediate' | 'advanced' {
+    const advancedWords = ['implement', 'facilitate', 'optimize', 'strategize', 'leverage', 'comprehensive', 'methodology', 'paradigm', 'synthesis', 'framework'];
+    const intermediateWords = ['consider', 'analyze', 'develop', 'enhance', 'evaluate', 'establish', 'demonstrate', 'integrate', 'collaborate', 'prioritize'];
+    
+    const advancedCount = words.filter(word => advancedWords.includes(word)).length;
+    const intermediateCount = words.filter(word => intermediateWords.includes(word)).length;
+    const totalWords = words.length;
+    
+    const advancedRatio = advancedCount / totalWords;
+    const intermediateRatio = intermediateCount / totalWords;
+    
+    if (advancedRatio > 0.05 || advancedCount > 2) return 'advanced';
+    if (intermediateRatio > 0.08 || intermediateCount > 3) return 'intermediate';
+    return 'basic';
   }
 
   private generateDynamicContentEvaluation(
@@ -743,6 +928,36 @@ Format your response clearly with these sections.`;
     if (clarity >= 6) return 'Main point is reasonably clear but could be more focused';
     if (fillerCount > 3) return 'Reduce filler words to improve main point clarity';
     return 'Main point needs to be stated more clearly and directly';
+  }
+
+  private generateSpeechSummary(transcript: string): string {
+    const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const words = transcript.toLowerCase().split(/\s+/);
+    
+    // Extract key topics and themes
+    const keyTopics = this.extractTopics(transcript);
+    const mainVerbs = words.filter(word => 
+      ['implement', 'consider', 'develop', 'create', 'improve', 'discuss', 'present', 'analyze', 'suggest', 'recommend', 'explain'].includes(word)
+    );
+    
+    // Identify main subject matter
+    let subject = 'the speaker';
+    if (/project|development/i.test(transcript)) subject = 'the project team';
+    if (/business|company/i.test(transcript)) subject = 'the organization';
+    if (/user|customer/i.test(transcript)) subject = 'user experience';
+    
+    // Generate contextual summary
+    const mainAction = mainVerbs[0] || 'discusses';
+    const mainTopic = keyTopics[0]?.toLowerCase() || 'various topics';
+    
+    // Create 1-2 sentence summary based on actual content
+    if (sentences.length === 1) {
+      return `The speaker ${mainAction} ${mainTopic} in a brief, focused statement.`;
+    } else if (sentences.length <= 3) {
+      return `The speaker ${mainAction} ${mainTopic}, providing specific insights and recommendations for moving forward.`;
+    } else {
+      return `The speaker delivers a comprehensive discussion about ${mainTopic}, covering multiple aspects and providing detailed analysis. The presentation includes specific recommendations and actionable insights for implementation.`;
+    }
   }
 }
 

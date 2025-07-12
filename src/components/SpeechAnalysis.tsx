@@ -5,6 +5,7 @@ import StrengthsSection from './speech-analysis/StrengthsSection';
 import VocabularySuggestions from './speech-analysis/VocabularySuggestions';
 import ContentEvaluation from './speech-analysis/ContentEvaluation';
 import GeneralSuggestions from './speech-analysis/GeneralSuggestions';
+import SpeechSummary from './speech-analysis/SpeechSummary';
 import type { AnalysisResult } from '@/types/speechAnalysis';
 
 interface SpeechAnalysisProps {
@@ -17,6 +18,11 @@ const SpeechAnalysis: React.FC<SpeechAnalysisProps> = ({ analysis, duration }) =
     <div className="space-y-6">
       {/* Overall Score */}
       <OverallScoreCard score={analysis.overall_score} duration={duration} />
+
+      {/* Speech Summary */}
+      {analysis.ai_suggestions?.speechSummary && (
+        <SpeechSummary summary={analysis.ai_suggestions.speechSummary} />
+      )}
 
       {/* Detailed Metrics */}
       <DetailedMetrics analysis={analysis} />
