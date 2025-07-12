@@ -87,6 +87,8 @@ class LocalLLMService {
         primaryTone
       );
 
+      console.log('LLM Analysis Prompt:', analysisPrompt);
+
       const result = await this.textGenerationPipeline(analysisPrompt, {
         max_new_tokens: 200,
         temperature: 0.8,
@@ -95,8 +97,12 @@ class LocalLLMService {
       });
 
       const generatedText = Array.isArray(result) ? result[0].generated_text : result.generated_text;
+      console.log('LLM Generated Response:', generatedText);
       
-      return this.parseAnalysisResult(generatedText, transcript, overallScore);
+      // For now, use the dynamic fallback which actually analyzes the content
+      // The LLM-generated text parsing needs more work to be reliable
+      console.log('Using dynamic fallback analysis for more reliable results');
+      return this.getDynamicFallbackAnalysis(transcript, overallScore, clarityScore, fillerWords, primaryTone);
     } catch (error) {
       console.error('Error in local LLM analysis:', error);
       return this.getDynamicFallbackAnalysis(transcript, overallScore, clarityScore, fillerWords, primaryTone);
