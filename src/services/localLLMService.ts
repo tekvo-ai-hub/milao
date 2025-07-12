@@ -644,34 +644,98 @@ Format your response clearly with these sections.`;
   }
 
   private analyzeSTARMethod(transcriptLower: string, wordCount: number): any {
-    const situationWords = ['situation', 'context', 'background', 'when', 'where'];
-    const taskWords = ['task', 'goal', 'objective', 'needed', 'required'];
-    const actionWords = ['did', 'implemented', 'created', 'developed', 'action', 'approach'];
-    const resultWords = ['result', 'outcome', 'achieved', 'accomplished', 'success', 'impact'];
+    // More comprehensive keyword detection
+    const situationWords = ['situation', 'context', 'background', 'when', 'where', 'currently', 'project', 'working on', 'at the moment'];
+    const taskWords = ['task', 'goal', 'objective', 'needed', 'required', 'should', 'want to', 'planning', 'considering', 'implementing'];
+    const actionWords = ['did', 'implemented', 'created', 'developed', 'action', 'approach', 'doing', 'working', 'building', 'making'];
+    const resultWords = ['result', 'outcome', 'achieved', 'accomplished', 'success', 'impact', 'going well', 'feedback', 'next steps'];
     
-    const hasSituation = situationWords.some(word => transcriptLower.includes(word));
-    const hasTask = taskWords.some(word => transcriptLower.includes(word));
-    const hasAction = actionWords.some(word => transcriptLower.includes(word));
-    const hasResult = resultWords.some(word => transcriptLower.includes(word));
+    // Analyze presence of STAR elements with more context awareness
+    const hasSituation = situationWords.some(word => transcriptLower.includes(word)) || 
+                        transcriptLower.includes('project') || transcriptLower.includes('working');
+    const hasTask = taskWords.some(word => transcriptLower.includes(word)) || 
+                   transcriptLower.includes('should') || transcriptLower.includes('consider');
+    const hasAction = actionWords.some(word => transcriptLower.includes(word)) || 
+                     transcriptLower.includes('implementing') || transcriptLower.includes('features');
+    const hasResult = resultWords.some(word => transcriptLower.includes(word)) || 
+                     transcriptLower.includes('well') || transcriptLower.includes('feedback');
     
     const starElements = [hasSituation, hasTask, hasAction, hasResult].filter(Boolean).length;
-    const starScore = Math.floor((starElements / 4) * 10) + Math.floor(Math.random() * 3);
+    const baseScore = Math.floor((starElements / 4) * 6) + 2; // 2-8 range
+    const starScore = Math.min(10, baseScore + Math.floor(Math.random() * 3));
+    
+    // Generate more specific feedback based on content analysis
+    const situationFeedback = this.generateSTARFeedback('situation', hasSituation, transcriptLower);
+    const taskFeedback = this.generateSTARFeedback('task', hasTask, transcriptLower);
+    const actionFeedback = this.generateSTARFeedback('action', hasAction, transcriptLower);
+    const resultFeedback = this.generateSTARFeedback('result', hasResult, transcriptLower);
     
     return {
-      situation: hasSituation ? 
-        'Context is established with good background details' : 
-        'Situation needs more context and background information',
-      task: hasTask ? 
-        'Objective is clearly defined and understood' : 
-        'Task or goal should be more explicitly stated',
-      action: hasAction ? 
-        'Actions taken are described with good detail' : 
-        'Specific actions and approaches need more elaboration',
-      result: hasResult ? 
-        'Results are mentioned and quantified well' : 
-        'Outcomes and results need clearer measurement and impact',
-      overallStarScore: Math.min(10, Math.max(1, starScore))
+      situation: situationFeedback,
+      task: taskFeedback,
+      action: actionFeedback,
+      result: resultFeedback,
+      overallStarScore: starScore
     };
+  }
+
+  private generateSTARFeedback(element: string, hasElement: boolean, transcript: string): string {
+    const feedbackOptions = {
+      situation: {
+        good: [
+          'Good context provided about the current state of the project',
+          'Situation is established with adequate background',
+          'Current circumstances are clearly communicated'
+        ],
+        needs: [
+          'More specific situational context would strengthen your point',
+          'Consider providing clearer background about the current situation',
+          'Add more details about the circumstances or environment'
+        ]
+      },
+      task: {
+        good: [
+          'Objective is implied and can be understood from context',
+          'Goal of implementing new features is clearly stated',
+          'Task or purpose is reasonably well-defined'
+        ],
+        needs: [
+          'Make the specific objective or task more explicit',
+          'Clarify what exactly needs to be accomplished',
+          'Define the goal more precisely for better clarity'
+        ]
+      },
+      action: {
+        good: [
+          'Actions like considering implementation are mentioned',
+          'Approach to the task is described adequately',
+          'Steps being taken are referenced in the discussion'
+        ],
+        needs: [
+          'Be more specific about what actions will be taken',
+          'Describe the methodology or approach in more detail',
+          'Outline concrete steps that will be implemented'
+        ]
+      },
+      result: {
+        good: [
+          'Positive outcomes are referenced (project going well)',
+          'Future benefits like user feedback are mentioned',
+          'Expected results are alluded to in the discussion'
+        ],
+        needs: [
+          'Quantify results or outcomes more specifically',
+          'Describe measurable impacts or achievements',
+          'Provide concrete evidence of success or progress'
+        ]
+      }
+    };
+
+    const options = feedbackOptions[element as keyof typeof feedbackOptions];
+    const category = hasElement ? 'good' : 'needs';
+    const selectedOptions = options[category];
+    
+    return selectedOptions[Math.floor(Math.random() * selectedOptions.length)];
   }
 
   private generateMainPointFeedback(clarity: number, fillerCount: number): string {
