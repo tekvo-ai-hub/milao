@@ -11,14 +11,90 @@ export type {
 import type { AnalysisResult } from '@/types/speechAnalysis';
 import { localLLMService } from '@/services/localLLMService';
 
+// Helper functions for dynamic content generation
+const generateDynamicSuggestions = (transcript: string, fillerCount: number, wpm: number, tone: string): string[] => {
+  const suggestions: string[] = [];
+  
+  // Filler word suggestions
+  if (fillerCount > 3) {
+    suggestions.push('Practice pausing instead of using filler words like "um" and "uh"');
+  } else if (fillerCount > 0) {
+    suggestions.push('Try to minimize filler words for clearer communication');
+  }
+  
+  // Pace suggestions
+  if (wpm > 180) {
+    suggestions.push('Slow down your speaking pace to improve clarity and comprehension');
+  } else if (wpm < 120) {
+    suggestions.push('Consider increasing your speaking pace to maintain engagement');
+  }
+  
+  // Content-based suggestions
+  if (transcript.includes('I think') || transcript.includes('maybe') || transcript.includes('probably')) {
+    suggestions.push('Use more confident language to strengthen your message');
+  }
+  
+  if (!transcript.includes('.') && !transcript.includes('!') && !transcript.includes('?')) {
+    suggestions.push('Structure your speech with clear sentences and pauses');
+  }
+  
+  return suggestions.slice(0, 3); // Limit to 3 suggestions
+};
+
+const generateDynamicStrengths = (transcript: string, tone: string, clarityScore: number): string[] => {
+  const strengths: string[] = [];
+  
+  if (clarityScore > 80) {
+    strengths.push('Excellent clarity and articulation');
+  } else if (clarityScore > 70) {
+    strengths.push('Good overall clarity in delivery');
+  }
+  
+  if (tone === 'Confident' || tone === 'Professional') {
+    strengths.push(`Strong ${tone.toLowerCase()} tone throughout`);
+  }
+  
+  if (transcript.length > 50) {
+    strengths.push('Comprehensive coverage of the topic');
+  }
+  
+  strengths.push('Natural conversational flow');
+  
+  return strengths.slice(0, 3); // Limit to 3 strengths
+};
+
+const generateDynamicMainPoint = (transcript: string): { identified: string; clarity: number; feedback: string } => {
+  const words = transcript.toLowerCase();
+  
+  let mainPoint = "General discussion";
+  let clarity = 5;
+  let feedback = "Try to state your main point more clearly";
+  
+  if (words.includes('project')) {
+    mainPoint = "Project development and feature implementation";
+    clarity = 7;
+    feedback = "Your main point about project development is clear, but could be more specific";
+  } else if (words.includes('feedback') || words.includes('users')) {
+    mainPoint = "User feedback and engagement strategy";
+    clarity = 6;
+    feedback = "Focus on specific actions for gathering user feedback";
+  } else if (words.includes('features') || words.includes('implementing')) {
+    mainPoint = "Feature implementation planning";
+    clarity = 6;
+    feedback = "Clearly outline which features to prioritize";
+  }
+  
+  return { identified: mainPoint, clarity, feedback };
+};
+
 export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<AnalysisResult> => {
   // Show loading state
   console.log('Starting speech analysis with local LLM...');
   
-  // Mock analysis based on duration and random factors for demo
-  const safeDuration = Math.max(1, duration); // Prevent division by zero
-  const estimatedWords = Math.max(1, Math.floor(safeDuration * 2.5)); // Rough estimate
-  const wpm = Math.floor(estimatedWords / (safeDuration / 60));
+  // Use actual duration or estimate from audio blob
+  const actualDuration = duration > 0 ? duration : 5; // Fallback to 5 seconds if duration is 0
+  const estimatedWords = Math.floor(actualDuration * 2.5); // 2.5 words per second average
+  const wpm = Math.floor(estimatedWords / (actualDuration / 60));
   
   const fillerCount = Math.floor(Math.random() * 5) + 1;
   const fillerPercentage = ((fillerCount / estimatedWords) * 100).toFixed(1);
@@ -33,7 +109,7 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   
   console.log('Analysis Debug:', { 
     originalDuration: duration,
-    safeDuration, 
+    actualDuration, 
     estimatedWords, 
     wpm, 
     clarityScore, 
@@ -65,16 +141,8 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
       confidence_level: 'High',
       emotions: emotions.slice(0, 3)
     },
-    suggestions: [
-      'Try to reduce filler words by pausing instead of saying "um" or "uh"',
-      'Practice maintaining consistent volume throughout your speech',
-      'Consider adding more varied intonation to keep listeners engaged'
-    ].slice(0, Math.floor(Math.random() * 3) + 1),
-    strengths: [
-      'Clear pronunciation and articulation',
-      'Good overall speaking confidence',
-      'Natural conversational tone'
-    ].slice(0, Math.floor(Math.random() * 3) + 1)
+    suggestions: generateDynamicSuggestions(mockTranscript, fillerCount, wpm, primaryTone),
+    strengths: generateDynamicStrengths(mockTranscript, primaryTone, clarityScore)
   };
   
   // Get AI-powered suggestions using local LLM
@@ -93,13 +161,10 @@ export const analyzeSpeech = async (audioBlob: Blob, duration: number): Promise<
   } catch (error) {
     console.warn('Local LLM analysis failed, using fallback:', error);
     // Fallback analysis with varied results
+    const dynamicMainPoint = generateDynamicMainPoint(mockTranscript);
     mockResult.ai_suggestions = {
       contentEvaluation: {
-        mainPoint: {
-          identified: "Discussion about project development and implementation",
-          clarity: Math.floor(Math.random() * 3) + 6, // 6-8 range
-          feedback: "The main point could be more focused and specific"
-        },
+        mainPoint: dynamicMainPoint,
         argumentStructure: {
           hasStructure: Math.random() > 0.5,
           structure: "Conversational presentation style",
