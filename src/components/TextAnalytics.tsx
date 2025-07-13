@@ -64,74 +64,58 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
       setSpeechModelStatus('loading');
       
       let speechModelLoaded = false;
-      let actualTranscriber = null;
       
       try {
-        // Try WebGPU first for Whisper
+        // Try WebGPU first for Whisper - FORCE COMPLETE AWAIT
         console.log('Creating Whisper pipeline with WebGPU...');
-        actualTranscriber = await pipeline(
+        const whisperModelPromise = pipeline(
           'automatic-speech-recognition',
           'onnx-community/whisper-tiny.en',
           { device: 'webgpu' }
         );
         
-        console.log('🔍 Whisper model loaded, type check:', typeof actualTranscriber);
-        console.log('🔍 Whisper model object:', actualTranscriber);
+        // CRITICAL: Ensure we await the Promise completely
+        console.log('🔄 Awaiting Whisper pipeline...');
+        const whisperModel = await whisperModelPromise;
         
-        // Ensure we have the actual function, not a Promise
-        if (actualTranscriber && typeof actualTranscriber === 'function') {
-          console.log('✅ Whisper model loaded successfully with WebGPU and is callable');
-          setTranscriber(() => actualTranscriber); // Use function setter to avoid stale closures
+        console.log('🔍 Final Whisper model type:', typeof whisperModel);
+        console.log('🔍 Whisper model callable?:', typeof whisperModel === 'function');
+        
+        // STRICT validation - must be a function
+        if (typeof whisperModel === 'function') {
+          console.log('✅ Whisper WebGPU model is callable function');
+          setTranscriber(whisperModel); // Direct assignment, not arrow function
           setSpeechModelStatus('loaded');
           speechModelLoaded = true;
-        } else if (actualTranscriber && typeof actualTranscriber === 'object' && actualTranscriber.then) {
-          console.log('⚠️ Whisper model is a Promise, awaiting...');
-          actualTranscriber = await actualTranscriber;
-          if (typeof actualTranscriber === 'function') {
-            console.log('✅ Whisper Promise resolved to callable function');
-            setTranscriber(() => actualTranscriber);
-            setSpeechModelStatus('loaded');
-            speechModelLoaded = true;
-          } else {
-            console.error('❌ Whisper Promise resolved but not to a function:', typeof actualTranscriber);
-            throw new Error('Resolved model is not callable');
-          }
         } else {
-          console.error('❌ Whisper model loaded but is not a function:', typeof actualTranscriber);
-          throw new Error('Model is not callable');
+          console.error('❌ Whisper WebGPU model is not a function:', typeof whisperModel, whisperModel);
+          throw new Error('WebGPU model is not callable');
         }
       } catch (webgpuError) {
         console.warn('⚠️ WebGPU failed for Whisper, trying CPU:', webgpuError);
         try {
-          // Fallback to CPU for Whisper
+          // Fallback to CPU for Whisper - FORCE COMPLETE AWAIT
           console.log('Creating Whisper pipeline with CPU...');
-          actualTranscriber = await pipeline(
+          const whisperModelCPUPromise = pipeline(
             'automatic-speech-recognition',
             'onnx-community/whisper-tiny.en'
           );
           
-          console.log('🔍 Whisper CPU model type check:', typeof actualTranscriber);
+          // CRITICAL: Ensure we await the Promise completely
+          console.log('🔄 Awaiting Whisper CPU pipeline...');
+          const whisperModelCPU = await whisperModelCPUPromise;
           
-          // Ensure we have the actual function, not a Promise
-          if (actualTranscriber && typeof actualTranscriber === 'function') {
-            console.log('✅ Whisper model loaded successfully with CPU and is callable');
-            setTranscriber(() => actualTranscriber);
+          console.log('🔍 Final Whisper CPU model type:', typeof whisperModelCPU);
+          console.log('🔍 Whisper CPU model callable?:', typeof whisperModelCPU === 'function');
+          
+          // STRICT validation - must be a function
+          if (typeof whisperModelCPU === 'function') {
+            console.log('✅ Whisper CPU model is callable function');
+            setTranscriber(whisperModelCPU); // Direct assignment, not arrow function
             setSpeechModelStatus('loaded');
             speechModelLoaded = true;
-          } else if (actualTranscriber && typeof actualTranscriber === 'object' && actualTranscriber.then) {
-            console.log('⚠️ Whisper CPU model is a Promise, awaiting...');
-            actualTranscriber = await actualTranscriber;
-            if (typeof actualTranscriber === 'function') {
-              console.log('✅ Whisper CPU Promise resolved to callable function');
-              setTranscriber(() => actualTranscriber);
-              setSpeechModelStatus('loaded');
-              speechModelLoaded = true;
-            } else {
-              console.error('❌ Whisper CPU Promise resolved but not to a function:', typeof actualTranscriber);
-              throw new Error('CPU resolved model is not callable');
-            }
           } else {
-            console.error('❌ Whisper model loaded with CPU but is not a function:', typeof actualTranscriber);
+            console.error('❌ Whisper CPU model is not a function:', typeof whisperModelCPU, whisperModelCPU);
             throw new Error('CPU model is not callable');
           }
         } catch (cpuError) {
