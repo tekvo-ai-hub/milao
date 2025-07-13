@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { AudioWaveform, Copy, Check, Loader2 } from 'lucide-react';
-import { useLocalAI } from '@/hooks/useLocalAI';
+import { AudioWaveform, Copy, Check, Loader2, Cloud, Cpu } from 'lucide-react';
+import { transcribeAudioWithAPI } from '@/utils/speechTranscriptionAPI';
 import { VoiceRecorder } from './VoiceRecorder';
+import { useToast } from '@/hooks/use-toast';
 
 interface VoiceToTextProps {
   onTranscriptGenerated?: (transcript: string) => void;
@@ -15,20 +16,25 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
   const [transcript, setTranscript] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { transcribeAudio, isModelLoaded } = useLocalAI();
+  const { toast } = useToast();
 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
-    if (!isModelLoaded('whisper-tiny')) {
-      return;
-    }
-
     setIsTranscribing(true);
     try {
-      const result = await transcribeAudio(audioBlob);
+      const result = await transcribeAudioWithAPI(audioBlob);
       setTranscript(result);
       onTranscriptGenerated?.(result);
+      toast({
+        title: "Transcription Complete",
+        description: "Audio has been successfully transcribed using cloud AI.",
+      });
     } catch (error) {
       console.error('Transcription failed:', error);
+      toast({
+        title: "Transcription Failed",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
     } finally {
       setIsTranscribing(false);
     }
@@ -41,8 +47,6 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
       setTimeout(() => setCopied(false), 2000);
     }
   };
-
-  const isWhisperReady = isModelLoaded('whisper-tiny');
 
   return (
     <div className="space-y-6">
@@ -72,9 +76,12 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
           <CardContent className="space-y-4">
             {isTranscribing ? (
               <div className="text-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+                <Cloud className="w-8 h-8 animate-pulse mx-auto mb-4 text-primary" />
                 <p className="text-muted-foreground">
-                  Converting speech to text using local AI...
+                  Converting speech to text using cloud AI...
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  This is much faster than local processing!
                 </p>
               </div>
             ) : (
@@ -119,20 +126,20 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
         </Card>
       )}
 
-      {/* Status Message */}
-      {!isWhisperReady && (
-        <Card className="border-dashed border-2 border-gray-300">
-          <CardContent className="py-6">
-            <div className="text-center space-y-2">
-              <AudioWaveform className="w-12 h-12 mx-auto text-gray-400" />
-              <h3 className="font-medium text-gray-900">Voice-to-Text Not Available</h3>
-              <p className="text-sm text-gray-500">
-                Please initialize the Whisper AI model first to use voice transcription.
+      {/* Info Card - Always show to explain the cloud processing */}
+      <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+        <CardContent className="py-4">
+          <div className="flex items-center space-x-3">
+            <Cloud className="w-5 h-5 text-blue-500" />
+            <div>
+              <p className="text-sm font-medium">Fast Cloud Transcription</p>
+              <p className="text-xs text-muted-foreground">
+                Using OpenAI Whisper API for lightning-fast speech-to-text conversion
               </p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
