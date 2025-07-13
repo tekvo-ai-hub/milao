@@ -49,7 +49,7 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
   const [aiEnabled, setAiEnabled] = useState(false);
   const { toast } = useToast();
 
-  // Manual AI model initialization
+  // Manual AI model initialization - prioritize Whisper first
   const initializeAI = async () => {
     setIsInitializing(true);
     setAiEnabled(true);
@@ -59,48 +59,79 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
     try {
       console.log('Starting AI model initialization...');
       
-      // Initialize speech recognition model
-      console.log('Loading Whisper speech recognition model...');
+      // PRIORITY 1: Initialize Whisper speech recognition model first
+      console.log('🎤 Loading Whisper speech recognition model (PRIORITY)...');
       setSpeechModelStatus('loading');
       
       let speechModelLoaded = false;
+      let actualTranscriber = null;
+      
       try {
-        // Try WebGPU first
+        // Try WebGPU first for Whisper
         console.log('Creating Whisper pipeline with WebGPU...');
-        const speechModelWebGPU = await pipeline(
+        actualTranscriber = await pipeline(
           'automatic-speech-recognition',
           'onnx-community/whisper-tiny.en',
           { device: 'webgpu' }
         );
         
-        // Validate the model is a function
-        if (typeof speechModelWebGPU === 'function') {
+        console.log('🔍 Whisper model loaded, type check:', typeof actualTranscriber);
+        console.log('🔍 Whisper model object:', actualTranscriber);
+        
+        // Ensure we have the actual function, not a Promise
+        if (actualTranscriber && typeof actualTranscriber === 'function') {
           console.log('✅ Whisper model loaded successfully with WebGPU and is callable');
-          setTranscriber(speechModelWebGPU);
+          setTranscriber(() => actualTranscriber); // Use function setter to avoid stale closures
           setSpeechModelStatus('loaded');
           speechModelLoaded = true;
+        } else if (actualTranscriber && typeof actualTranscriber === 'object' && actualTranscriber.then) {
+          console.log('⚠️ Whisper model is a Promise, awaiting...');
+          actualTranscriber = await actualTranscriber;
+          if (typeof actualTranscriber === 'function') {
+            console.log('✅ Whisper Promise resolved to callable function');
+            setTranscriber(() => actualTranscriber);
+            setSpeechModelStatus('loaded');
+            speechModelLoaded = true;
+          } else {
+            console.error('❌ Whisper Promise resolved but not to a function:', typeof actualTranscriber);
+            throw new Error('Resolved model is not callable');
+          }
         } else {
-          console.error('❌ Whisper model loaded but is not a function:', typeof speechModelWebGPU);
+          console.error('❌ Whisper model loaded but is not a function:', typeof actualTranscriber);
           throw new Error('Model is not callable');
         }
       } catch (webgpuError) {
         console.warn('⚠️ WebGPU failed for Whisper, trying CPU:', webgpuError);
         try {
-          // Fallback to CPU
+          // Fallback to CPU for Whisper
           console.log('Creating Whisper pipeline with CPU...');
-          const speechModelCPU = await pipeline(
+          actualTranscriber = await pipeline(
             'automatic-speech-recognition',
             'onnx-community/whisper-tiny.en'
           );
           
-          // Validate the model is a function
-          if (typeof speechModelCPU === 'function') {
+          console.log('🔍 Whisper CPU model type check:', typeof actualTranscriber);
+          
+          // Ensure we have the actual function, not a Promise
+          if (actualTranscriber && typeof actualTranscriber === 'function') {
             console.log('✅ Whisper model loaded successfully with CPU and is callable');
-            setTranscriber(speechModelCPU);
+            setTranscriber(() => actualTranscriber);
             setSpeechModelStatus('loaded');
             speechModelLoaded = true;
+          } else if (actualTranscriber && typeof actualTranscriber === 'object' && actualTranscriber.then) {
+            console.log('⚠️ Whisper CPU model is a Promise, awaiting...');
+            actualTranscriber = await actualTranscriber;
+            if (typeof actualTranscriber === 'function') {
+              console.log('✅ Whisper CPU Promise resolved to callable function');
+              setTranscriber(() => actualTranscriber);
+              setSpeechModelStatus('loaded');
+              speechModelLoaded = true;
+            } else {
+              console.error('❌ Whisper CPU Promise resolved but not to a function:', typeof actualTranscriber);
+              throw new Error('CPU resolved model is not callable');
+            }
           } else {
-            console.error('❌ Whisper model loaded with CPU but is not a function:', typeof speechModelCPU);
+            console.error('❌ Whisper model loaded with CPU but is not a function:', typeof actualTranscriber);
             throw new Error('CPU model is not callable');
           }
         } catch (cpuError) {
@@ -109,36 +140,36 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
         }
       }
 
-      // Initialize text generation model  
-      console.log('Loading text generation model...');
+      // PRIORITY 2: Initialize GPT-2 text generation model
+      console.log('🧠 Loading GPT-2 text generation model...');
       setTextModelStatus('loading');
       
       let textModelLoaded = false;
       try {
-        // Try WebGPU first
+        // Try WebGPU first for GPT-2
         const textModelWebGPU = await pipeline(
           'text-generation',
           'Xenova/distilgpt2',
           { device: 'webgpu' }
         );
-        console.log('✅ Text generation model loaded successfully with WebGPU');
+        console.log('✅ GPT-2 model loaded successfully with WebGPU');
         setTextGenerator(textModelWebGPU);
         setTextModelStatus('loaded');
         textModelLoaded = true;
       } catch (webgpuError) {
-        console.warn('⚠️ WebGPU failed for text model, trying CPU:', webgpuError);
+        console.warn('⚠️ WebGPU failed for GPT-2, trying CPU:', webgpuError);
         try {
-          // Fallback to CPU
+          // Fallback to CPU for GPT-2
           const textModelCPU = await pipeline(
             'text-generation',
             'Xenova/distilgpt2'
           );
-          console.log('✅ Text generation model loaded successfully with CPU');
+          console.log('✅ GPT-2 model loaded successfully with CPU');
           setTextGenerator(textModelCPU);
           setTextModelStatus('loaded');
           textModelLoaded = true;
         } catch (cpuError) {
-          console.error('❌ Failed to load text generation model on CPU:', cpuError);
+          console.error('❌ Failed to load GPT-2 model on CPU:', cpuError);
           setTextModelStatus('error');
         }
       }
