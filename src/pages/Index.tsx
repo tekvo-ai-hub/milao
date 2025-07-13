@@ -787,19 +787,7 @@ const Index = () => {
                       {/* Speech Analysis */}
                       <SpeechAnalysis analysis={currentAnalysis} duration={currentDuration} />
                       
-                      {/* Text Analytics */}
-                      <div className="pt-6 border-t">
-                        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-                          <FileText className="w-5 h-5 text-primary" />
-                          <span>Text Analytics</span>
-                        </h3>
-                        <TextAnalytics 
-                          audioBlob={currentAudioBlob || undefined} 
-                          onTranscriptGenerated={(transcript) => {
-                            console.log('Transcript generated:', transcript);
-                          }}
-                        />
-                      </div>
+                      {/* Text Analytics section is hidden for now */}
                     </div>
                   ) : (
                     <div className="p-8 text-center">
