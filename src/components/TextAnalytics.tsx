@@ -55,19 +55,26 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
 
     setIsTranscribing(true);
     try {
-      // Convert blob to base64
+      console.log('Starting transcription with audio blob size:', audioBlob.size);
+      
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       reader.onload = async () => {
         const base64Audio = (reader.result as string).split(',')[1];
+        console.log('Base64 audio length:', base64Audio.length);
 
         const { data, error } = await supabase.functions.invoke('transcribe-audio', {
           body: { audio: base64Audio }
         });
 
-        if (error) throw error;
+        console.log('Transcription response:', { data, error });
 
-        if (data.success) {
+        if (error) {
+          console.error('Supabase function error:', error);
+          throw error;
+        }
+
+        if (data?.success) {
           setTranscript(data.text);
           setText(data.text);
           onTranscriptGenerated?.(data.text);
@@ -76,7 +83,8 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
             description: "Audio has been successfully transcribed to text.",
           });
         } else {
-          throw new Error(data.error);
+          console.error('Transcription failed:', data);
+          throw new Error(data?.error || 'Transcription failed');
         }
       };
     } catch (error) {
@@ -103,20 +111,28 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
 
     setIsAnalyzing(true);
     try {
+      console.log('Starting text analysis with text length:', text.length);
+      
       const { data, error } = await supabase.functions.invoke('analyze-text', {
         body: { text: text.trim() }
       });
 
-      if (error) throw error;
+      console.log('Analysis response:', { data, error });
 
-      if (data.success) {
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+
+      if (data?.success) {
         setAnalysis(data.analysis);
         toast({
           title: "Analysis Complete",
           description: "Text analysis has been completed successfully.",
         });
       } else {
-        throw new Error(data.error);
+        console.error('Analysis failed:', data);
+        throw new Error(data?.error || 'Analysis failed');
       }
     } catch (error) {
       console.error('Analysis error:', error);
