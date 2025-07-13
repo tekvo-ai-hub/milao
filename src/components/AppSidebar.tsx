@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, TrendingUp, LogOut, User } from 'lucide-react';
+import { History, TrendingUp, LogOut, User, Brain } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -15,16 +15,24 @@ import { useAuth } from '@/hooks/useAuth';
 interface AppSidebarProps {
   onHistoryClick: () => void;
   onProgressClick: () => void;
+  onAiClick: () => void;
   historyOpen: boolean;
   progressOpen: boolean;
+  aiOpen: boolean;
 }
 
-export function AppSidebar({ onHistoryClick, onProgressClick, historyOpen, progressOpen }: AppSidebarProps) {
+export function AppSidebar({ onHistoryClick, onProgressClick, onAiClick, historyOpen, progressOpen, aiOpen }: AppSidebarProps) {
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
   const collapsed = state === 'collapsed';
 
   const menuItems = [
+    {
+      title: 'Local AI',
+      icon: Brain,
+      onClick: onAiClick,
+      isActive: aiOpen,
+    },
     {
       title: 'History',
       icon: History,
@@ -40,7 +48,7 @@ export function AppSidebar({ onHistoryClick, onProgressClick, historyOpen, progr
   ];
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-60"} collapsible="icon">
+    <Sidebar className={`${collapsed ? "w-14" : "w-60"} ml-auto`} side="right" collapsible="icon">
       <SidebarContent className="bg-card/50 backdrop-blur-md border-r border-[var(--glass-border)]">
         <SidebarGroup>
           <SidebarGroupContent>

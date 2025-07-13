@@ -514,47 +514,32 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar
-          onHistoryClick={() => {
-            setHistoryOpen(!historyOpen);
-            setProgressOpen(false);
-            setAnalysisOpen(false);
-          }}
-          onProgressClick={() => {
-            setProgressOpen(!progressOpen);
-            setHistoryOpen(false);
-            setAnalysisOpen(false);
-          }}
-          historyOpen={historyOpen}
-          progressOpen={progressOpen}
-        />
-        
         <main className="flex-1 bg-gradient-to-br from-background via-accent/20 to-background">
           {/* Header with Sidebar Toggle */}
           <header className="sticky top-0 z-10 bg-card/50 backdrop-blur-md border-b border-[var(--glass-border)] p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <SidebarTrigger className="p-2 hover:bg-accent/50 rounded-lg transition-colors">
-                  <Menu className="w-5 h-5" />
-                </SidebarTrigger>
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-gradient-to-r from-primary to-primary/80 rounded-xl shadow-[var(--shadow-glow)]">
-                    <Smartphone className="w-6 h-6 text-primary-foreground" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                      VoicePro AI
-                    </h1>
-                    <p className="text-muted-foreground text-xs">AI Speech Coach</p>
-                  </div>
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-gradient-to-r from-primary to-primary/80 rounded-xl shadow-[var(--shadow-glow)]">
+                  <Smartphone className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                    VoicePro AI
+                  </h1>
+                  <p className="text-muted-foreground text-xs">AI Speech Coach</p>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2 text-muted-foreground bg-card/50 backdrop-blur-sm px-3 py-2 rounded-full border border-[var(--glass-border)]">
-                <User className="w-4 h-4" />
-                <span className="text-sm">
-                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
-                </span>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-muted-foreground bg-card/50 backdrop-blur-sm px-3 py-2 rounded-full border border-[var(--glass-border)]">
+                  <User className="w-4 h-4" />
+                  <span className="text-sm">
+                    {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                  </span>
+                </div>
+                <SidebarTrigger className="p-2 hover:bg-accent/50 rounded-lg transition-colors">
+                  <Menu className="w-5 h-5" />
+                </SidebarTrigger>
               </div>
             </div>
           </header>
@@ -586,29 +571,8 @@ const Index = () => {
               </div>
             </Collapsible>
 
-        {/* Collapsible Sections */}
-        <div className="space-y-4">
-          {/* Enable Local AI Section */}
-          <Collapsible open={aiOpen} onOpenChange={setAiOpen}>
-            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Brain className="w-5 h-5 text-primary" />
-                      <span>Enable Local AI</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${aiOpen ? 'rotate-180' : ''}`} />
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  <LLMStatus />
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+            {/* Collapsible Sections */}
+            <div className="space-y-4">
 
           {/* Record Section */}
           <Collapsible open={recordOpen} onOpenChange={setRecordOpen}>
@@ -729,6 +693,20 @@ const Index = () => {
           </Collapsible>
 
           {/* Content based on sidebar selection */}
+          {aiOpen && (
+            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  <span>Enable Local AI</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LLMStatus />
+              </CardContent>
+            </Card>
+          )}
+
           {historyOpen && (
             <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
               <CardHeader>
@@ -737,7 +715,7 @@ const Index = () => {
                   <span>Recording History</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="max-h-[600px] overflow-y-auto">
                 <RecordingHistory
                   recordings={recordings}
                   onPlay={handlePlayRecording}
@@ -811,11 +789,35 @@ const Index = () => {
               </CollapsibleContent>
             </Card>
           </Collapsible>
+          </div>
         </div>
-      </div>
-    </main>
-  </div>
-</SidebarProvider>
+      </main>
+        
+      <AppSidebar
+        onHistoryClick={() => {
+          setHistoryOpen(!historyOpen);
+          setProgressOpen(false);
+          setAnalysisOpen(false);
+          setAiOpen(false);
+        }}
+        onProgressClick={() => {
+          setProgressOpen(!progressOpen);
+          setHistoryOpen(false);
+          setAnalysisOpen(false);
+          setAiOpen(false);
+        }}
+        onAiClick={() => {
+          setAiOpen(!aiOpen);
+          setHistoryOpen(false);
+          setProgressOpen(false);
+          setAnalysisOpen(false);
+        }}
+        historyOpen={historyOpen}
+        progressOpen={progressOpen}
+        aiOpen={aiOpen}
+      />
+    </div>
+  </SidebarProvider>
   );
 };
 
