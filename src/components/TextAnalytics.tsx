@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,77 +43,111 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
   const [copied, setCopied] = useState(false);
   const [transcriber, setTranscriber] = useState<any>(null);
   const [textGenerator, setTextGenerator] = useState<any>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [speechModelStatus, setSpeechModelStatus] = useState<'not-loaded' | 'loading' | 'loaded' | 'error'>('not-loaded');
+  const [textModelStatus, setTextModelStatus] = useState<'not-loaded' | 'loading' | 'loaded' | 'error'>('not-loaded');
+  const [aiEnabled, setAiEnabled] = useState(false);
   const { toast } = useToast();
 
-  // Initialize models
-  useEffect(() => {
-    const initializeModels = async () => {
+  // Manual AI model initialization
+  const initializeAI = async () => {
+    setIsInitializing(true);
+    setAiEnabled(true);
+    
+    try {
+      console.log('Starting manual AI model initialization...');
+      
+      // Initialize speech recognition model
+      setSpeechModelStatus('loading');
       try {
-        console.log('Initializing local AI models...');
-        
-        // Initialize speech recognition model with error handling
+        console.log('Loading Whisper speech recognition model...');
+        const speechModel = await pipeline(
+          'automatic-speech-recognition',
+          'onnx-community/whisper-tiny.en',
+          { device: 'webgpu' }
+        );
+        console.log('Whisper model loaded successfully with WebGPU');
+        setTranscriber(speechModel);
+        setSpeechModelStatus('loaded');
+      } catch (whisperError) {
+        console.warn('WebGPU Whisper failed, trying CPU:', whisperError);
         try {
-          console.log('Loading Whisper model...');
-          const speechModel = await pipeline(
-            'automatic-speech-recognition',
-            'onnx-community/whisper-tiny.en',
-            { device: 'webgpu' }
-          );
-          console.log('Whisper model loaded successfully');
-          setTranscriber(speechModel);
-        } catch (whisperError) {
-          console.warn('WebGPU Whisper failed, trying CPU:', whisperError);
           const speechModel = await pipeline(
             'automatic-speech-recognition',
             'onnx-community/whisper-tiny.en'
           );
           console.log('Whisper model loaded with CPU');
           setTranscriber(speechModel);
+          setSpeechModelStatus('loaded');
+        } catch (cpuError) {
+          console.error('Failed to load Whisper model:', cpuError);
+          setSpeechModelStatus('error');
         }
+      }
 
-        // Initialize text generation model  
+      // Initialize text generation model  
+      setTextModelStatus('loading');
+      try {
+        console.log('Loading text generation model...');
+        const textModel = await pipeline(
+          'text-generation',
+          'Xenova/distilgpt2',
+          { device: 'webgpu' }
+        );
+        console.log('Text generation model loaded successfully with WebGPU');
+        setTextGenerator(textModel);
+        setTextModelStatus('loaded');
+      } catch (textError) {
+        console.warn('WebGPU text model failed, trying CPU:', textError);
         try {
-          console.log('Loading text generation model...');
-          const textModel = await pipeline(
-            'text-generation',
-            'Xenova/distilgpt2',
-            { device: 'webgpu' }
-          );
-          console.log('Text generation model loaded successfully');
-          setTextGenerator(textModel);
-        } catch (textError) {
-          console.warn('WebGPU text model failed, trying CPU:', textError);
           const textModel = await pipeline(
             'text-generation',
             'Xenova/distilgpt2'
           );
           console.log('Text generation model loaded with CPU');
           setTextGenerator(textModel);
+          setTextModelStatus('loaded');
+        } catch (cpuError) {
+          console.error('Failed to load text generation model:', cpuError);
+          setTextModelStatus('error');
         }
-
-        setIsInitialized(true);
-        console.log('All local AI models initialized successfully');
-        
-        toast({
-          title: "AI Models Ready",
-          description: "Local AI models have been initialized successfully.",
-        });
-      } catch (error) {
-        console.error('Complete model initialization failed:', error);
-        // For now, set initialized to true but with null models
-        // This allows the component to work with text analysis only
-        setIsInitialized(true);
-        toast({
-          title: "Partial Model Loading",
-          description: "Text analysis available, but speech recognition may not work.",
-          variant: "destructive",
-        });
       }
-    };
 
-    initializeModels();
-  }, []);
+      // Check if at least one model loaded successfully
+      setTimeout(() => {
+        const speechLoaded = speechModelStatus === 'loaded' || transcriber;
+        const textLoaded = textModelStatus === 'loaded' || textGenerator;
+
+        if (speechLoaded && textLoaded) {
+          toast({
+            title: "AI Models Ready",
+            description: "All local AI models have been initialized successfully.",
+          });
+        } else if (speechLoaded || textLoaded) {
+          toast({
+            title: "Partial AI Setup",
+            description: "Some AI models loaded successfully. Check status below.",
+          });
+        } else {
+          toast({
+            title: "AI Setup Failed",
+            description: "Could not initialize AI models. Try refreshing the page.",
+            variant: "destructive",
+          });
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('Complete AI model initialization failed:', error);
+      toast({
+        title: "AI Initialization Failed",
+        description: "Could not initialize local AI models.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   // Helper functions for analysis
   const extractKeyPoints = (text: string): string[] => {
@@ -178,7 +212,7 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
     if (!transcriber) {
       toast({
         title: "Model Not Ready",
-        description: "Speech recognition model is not available. Please try refreshing the page.",
+        description: "Speech recognition model is not available. Please enable AI first.",
         variant: "destructive",
       });
       return;
@@ -312,78 +346,170 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
     return 'text-red-600';
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'loaded': return 'bg-green-100 text-green-800 border-green-200';
+      case 'loading': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'error': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'loaded': return <Check className="w-4 h-4" />;
+      case 'loading': return <Loader2 className="w-4 h-4 animate-spin" />;
+      case 'error': return <span className="w-4 h-4 text-center">✗</span>;
+      default: return <span className="w-4 h-4 text-center">○</span>;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Initialization Status */}
-      {!isInitialized && (
+      {/* Enable Local AI Section */}
+      <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Brain className="w-5 h-5 text-primary" />
+            <span>Local AI Setup</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!aiEnabled ? (
+            <div className="text-center space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Enable local AI models for speech-to-text transcription and text analysis. 
+                Models will be downloaded and run directly in your browser.
+              </p>
+              <Button
+                onClick={initializeAI}
+                disabled={isInitializing}
+                className="flex items-center space-x-2"
+              >
+                {isInitializing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Brain className="w-4 h-4" />
+                )}
+                <span>{isInitializing ? 'Initializing AI...' : 'Enable Local AI'}</span>
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm">AI Model Status:</h4>
+              
+              {/* Speech Recognition Model Status */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Mic className="w-4 h-4" />
+                  <span className="text-sm">Speech Recognition (Whisper)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(speechModelStatus)}
+                  <Badge className={getStatusColor(speechModelStatus)}>
+                    {speechModelStatus.replace('-', ' ')}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Text Generation Model Status */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm">Text Analysis (GPT-2)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(textModelStatus)}
+                  <Badge className={getStatusColor(textModelStatus)}>
+                    {textModelStatus.replace('-', ' ')}
+                  </Badge>
+                </div>
+              </div>
+
+              {(speechModelStatus === 'error' || textModelStatus === 'error') && (
+                <Button
+                  onClick={initializeAI}
+                  disabled={isInitializing}
+                  variant="outline"
+                  className="w-full flex items-center space-x-2"
+                >
+                  <Brain className="w-4 h-4" />
+                  <span>Retry Model Loading</span>
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Speech-to-Text Section */}
+      {aiEnabled && (
         <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-          <CardContent className="flex items-center justify-center p-6">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Mic className="w-5 h-5 text-primary" />
+              <span>Speech-to-Text Transcription</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <span>Initializing AI models...</span>
+              <Button
+                onClick={transcribeAudio}
+                disabled={!audioBlob || isTranscribing || speechModelStatus !== 'loaded'}
+                className="flex items-center space-x-2"
+              >
+                {isTranscribing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                <span>{isTranscribing ? 'Transcribing...' : 'Transcribe Audio'}</span>
+              </Button>
+              {transcript && (
+                <Button
+                  variant="outline"
+                  onClick={copyTranscript}
+                  className="flex items-center space-x-2"
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                  <span>{copied ? 'Copied!' : 'Copy'}</span>
+                </Button>
+              )}
+            </div>
+
+            {speechModelStatus !== 'loaded' && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  Speech recognition model is not ready. Please ensure the model is loaded in the AI Setup section above.
+                </p>
+              </div>
+            )}
+
+            {transcript && (
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Generated Transcript:</h4>
+                <div className="p-4 bg-muted/50 rounded-lg border">
+                  <p className="text-sm">{transcript}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">Or Enter Text Manually:</h4>
+              <Textarea
+                placeholder="Enter text to analyze or use the transcription above..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={4}
+              />
             </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Speech-to-Text Section */}
-      <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Mic className="w-5 h-5 text-primary" />
-            <span>Speech-to-Text Transcription</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Button
-              onClick={transcribeAudio}
-              disabled={!audioBlob || isTranscribing || !isInitialized}
-              className="flex items-center space-x-2"
-            >
-              {isTranscribing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <FileText className="w-4 h-4" />
-              )}
-              <span>{isTranscribing ? 'Transcribing...' : 'Transcribe Audio'}</span>
-            </Button>
-            {transcript && (
-              <Button
-                variant="outline"
-                onClick={copyTranscript}
-                className="flex items-center space-x-2"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
-                <span>{copied ? 'Copied!' : 'Copy'}</span>
-              </Button>
-            )}
-          </div>
-
-          {transcript && (
-            <div className="space-y-2">
-              <h4 className="font-medium text-sm">Generated Transcript:</h4>
-              <div className="p-4 bg-muted/50 rounded-lg border">
-                <p className="text-sm">{transcript}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Or Enter Text Manually:</h4>
-            <Textarea
-              placeholder="Enter text to analyze or use the transcription above..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={4}
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Text Analysis Section */}
       <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
@@ -396,7 +522,7 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
         <CardContent className="space-y-4">
           <Button
             onClick={analyzeText}
-            disabled={!text.trim() || isAnalyzing || !isInitialized}
+            disabled={!text.trim() || isAnalyzing}
             className="flex items-center space-x-2"
           >
             {isAnalyzing ? (
