@@ -183,8 +183,41 @@ export class LocalAIService {
     }
 
     console.log('🎯 Starting transcription...');
+    
+    // Convert blob to the format expected by Whisper
     const arrayBuffer = await audioBlob.arrayBuffer();
-    const result = await whisperModel.model(arrayBuffer);
+    
+    // Create audio context to decode the audio properly
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // Convert to Float32Array at the required sample rate (16kHz for Whisper)
+    const targetSampleRate = 16000;
+    const audioData = audioBuffer.getChannelData(0); // Get mono channel
+    
+    // Resample if needed
+    let resampledAudio: Float32Array;
+    if (audioBuffer.sampleRate !== targetSampleRate) {
+      const resampleRatio = targetSampleRate / audioBuffer.sampleRate;
+      const resampledLength = Math.floor(audioData.length * resampleRatio);
+      resampledAudio = new Float32Array(resampledLength);
+      
+      for (let i = 0; i < resampledLength; i++) {
+        const originalIndex = i / resampleRatio;
+        const index = Math.floor(originalIndex);
+        const fraction = originalIndex - index;
+        
+        if (index + 1 < audioData.length) {
+          resampledAudio[i] = audioData[index] * (1 - fraction) + audioData[index + 1] * fraction;
+        } else {
+          resampledAudio[i] = audioData[index];
+        }
+      }
+    } else {
+      resampledAudio = audioData;
+    }
+    
+    const result = await whisperModel.model(resampledAudio);
     
     if (!result?.text) {
       throw new Error('No transcription result received');
