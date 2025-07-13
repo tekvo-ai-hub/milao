@@ -421,8 +421,9 @@ const Index = () => {
       setCurrentAnalysis(recording.analysis);
       setCurrentDuration(recording.duration);
       setAnalysisOpen(true);
-      // Close history section when viewing analysis
+      // Close other sections when viewing analysis
       setHistoryOpen(false);
+      setProgressOpen(false);
     }
   };
 
@@ -516,11 +517,13 @@ const Index = () => {
         <AppSidebar
           onHistoryClick={() => {
             setHistoryOpen(!historyOpen);
-            if (progressOpen) setProgressOpen(false);
+            setProgressOpen(false);
+            setAnalysisOpen(false);
           }}
           onProgressClick={() => {
             setProgressOpen(!progressOpen);
-            if (historyOpen) setHistoryOpen(false);
+            setHistoryOpen(false);
+            setAnalysisOpen(false);
           }}
           historyOpen={historyOpen}
           progressOpen={progressOpen}
@@ -725,57 +728,42 @@ const Index = () => {
             </Card>
           </Collapsible>
 
-          {/* History Section */}
-          <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+          {/* Content based on sidebar selection */}
+          {historyOpen && (
             <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <History className="w-5 h-5 text-primary" />
-                      <span>History</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  <RecordingHistory
-                    recordings={recordings}
-                    onPlay={handlePlayRecording}
-                    onDelete={handleDeleteRecording}
-                    onViewAnalysis={handleViewAnalysis}
-                    onReEvaluate={handleReEvaluate}
-                    isReEvaluating={isReEvaluating}
-                    isLoading={loadingRecordings}
-                  />
-                </CardContent>
-              </CollapsibleContent>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <History className="w-5 h-5 text-primary" />
+                  <span>Recording History</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RecordingHistory
+                  recordings={recordings}
+                  onPlay={handlePlayRecording}
+                  onDelete={handleDeleteRecording}
+                  onViewAnalysis={handleViewAnalysis}
+                  onReEvaluate={handleReEvaluate}
+                  isReEvaluating={isReEvaluating}
+                  isLoading={loadingRecordings}
+                />
+              </CardContent>
             </Card>
-          </Collapsible>
+          )}
 
-          {/* Progress Section */}
-          <Collapsible open={progressOpen} onOpenChange={setProgressOpen}>
+          {progressOpen && (
             <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      <span>Progress</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${progressOpen ? 'rotate-180' : ''}`} />
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  <ProgressReport recordings={recordings} />
-                </CardContent>
-              </CollapsibleContent>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <span>Progress Report</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ProgressReport recordings={recordings} />
+              </CardContent>
             </Card>
-          </Collapsible>
+          )}
 
           {/* Analysis Section */}
           <Collapsible open={analysisOpen} onOpenChange={setAnalysisOpen}>
