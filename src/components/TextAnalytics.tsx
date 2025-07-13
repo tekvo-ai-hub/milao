@@ -52,60 +52,63 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
       try {
         console.log('Initializing local AI models...');
         
-        // Initialize speech recognition model
-        const speechModel = await pipeline(
-          'automatic-speech-recognition',
-          'onnx-community/whisper-tiny.en',
-          { device: 'webgpu' }
-        );
-        setTranscriber(speechModel);
+        // Initialize speech recognition model with error handling
+        try {
+          console.log('Loading Whisper model...');
+          const speechModel = await pipeline(
+            'automatic-speech-recognition',
+            'onnx-community/whisper-tiny.en',
+            { device: 'webgpu' }
+          );
+          console.log('Whisper model loaded successfully');
+          setTranscriber(speechModel);
+        } catch (whisperError) {
+          console.warn('WebGPU Whisper failed, trying CPU:', whisperError);
+          const speechModel = await pipeline(
+            'automatic-speech-recognition',
+            'onnx-community/whisper-tiny.en'
+          );
+          console.log('Whisper model loaded with CPU');
+          setTranscriber(speechModel);
+        }
 
         // Initialize text generation model  
-        const textModel = await pipeline(
-          'text-generation',
-          'Xenova/distilgpt2',
-          { device: 'webgpu' }
-        );
-        setTextGenerator(textModel);
+        try {
+          console.log('Loading text generation model...');
+          const textModel = await pipeline(
+            'text-generation',
+            'Xenova/distilgpt2',
+            { device: 'webgpu' }
+          );
+          console.log('Text generation model loaded successfully');
+          setTextGenerator(textModel);
+        } catch (textError) {
+          console.warn('WebGPU text model failed, trying CPU:', textError);
+          const textModel = await pipeline(
+            'text-generation',
+            'Xenova/distilgpt2'
+          );
+          console.log('Text generation model loaded with CPU');
+          setTextGenerator(textModel);
+        }
 
         setIsInitialized(true);
-        console.log('Local AI models initialized successfully');
+        console.log('All local AI models initialized successfully');
         
         toast({
           title: "AI Models Ready",
           description: "Local AI models have been initialized successfully.",
         });
       } catch (error) {
-        console.warn('WebGPU failed, falling back to CPU:', error);
-        try {
-          // Fallback to CPU
-          const speechModel = await pipeline(
-            'automatic-speech-recognition',
-            'onnx-community/whisper-tiny.en'
-          );
-          setTranscriber(speechModel);
-
-          const textModel = await pipeline(
-            'text-generation',
-            'Xenova/distilgpt2'
-          );
-          setTextGenerator(textModel);
-
-          setIsInitialized(true);
-          console.log('Local AI models initialized with CPU');
-          
-          toast({
-            title: "AI Models Ready (CPU)",
-            description: "Local AI models initialized using CPU.",
-          });
-        } catch (cpuError) {
-          console.error('Failed to initialize AI models:', cpuError);
-          toast({
-            title: "Model Initialization Failed",
-            description: "Could not initialize local AI models.",
-            variant: "destructive",
-          });
-        }
+        console.error('Complete model initialization failed:', error);
+        // For now, set initialized to true but with null models
+        // This allows the component to work with text analysis only
+        setIsInitialized(true);
+        toast({
+          title: "Partial Model Loading",
+          description: "Text analysis available, but speech recognition may not work.",
+          variant: "destructive",
+        });
       }
     };
 
@@ -175,7 +178,17 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
     if (!transcriber) {
       toast({
         title: "Model Not Ready",
-        description: "Speech recognition model is still loading. Please wait.",
+        description: "Speech recognition model is not available. Please try refreshing the page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (typeof transcriber !== 'function') {
+      console.error('Transcriber is not a function:', typeof transcriber, transcriber);
+      toast({
+        title: "Model Error",
+        description: "Speech recognition model is not properly initialized.",
         variant: "destructive",
       });
       return;
@@ -184,11 +197,13 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
     setIsTranscribing(true);
     try {
       console.log('Starting local transcription with audio blob size:', audioBlob.size);
+      console.log('Transcriber type:', typeof transcriber);
       
       // Convert blob to array buffer for whisper
       const arrayBuffer = await audioBlob.arrayBuffer();
-      const result = await transcriber(arrayBuffer);
+      console.log('Audio buffer size:', arrayBuffer.byteLength);
       
+      const result = await transcriber(arrayBuffer);
       console.log('Transcription result:', result);
 
       if (result?.text) {
@@ -206,7 +221,7 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
       console.error('Local transcription error:', error);
       toast({
         title: "Transcription Failed",
-        description: "Failed to transcribe audio with local model. Please try again.",
+        description: `Failed to transcribe audio: ${error.message}`,
         variant: "destructive",
       });
     } finally {
