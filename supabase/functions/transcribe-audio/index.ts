@@ -42,55 +42,79 @@ serve(async (req) => {
   }
 
   try {
+    console.log('📥 Received transcription request');
+    
+    // Check if OpenAI API key exists
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiKey) {
+      console.error('❌ OPENAI_API_KEY not found in environment variables');
+      throw new Error('OpenAI API key not configured');
+    }
+    console.log('✅ OpenAI API key found');
+
     const { audio } = await req.json();
     
     if (!audio) {
+      console.error('❌ No audio data provided in request');
       throw new Error('No audio data provided');
     }
-
-    console.log('Processing audio for transcription...');
-
-    // Process audio in chunks
-    const binaryAudio = processBase64Chunks(audio);
     
-    // Prepare form data
-    const formData = new FormData();
-    const blob = new Blob([binaryAudio], { type: 'audio/webm' });
-    formData.append('file', blob, 'audio.webm');
-    formData.append('model', 'whisper-1');
+    console.log('📊 Audio data received, length:', audio.length);
 
-    // Send to OpenAI Whisper
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-      },
-      body: formData,
-    });
+    try {
+      // Process audio in chunks
+      console.log('🔄 Processing audio chunks...');
+      const binaryAudio = processBase64Chunks(audio);
+      console.log('✅ Audio processing complete, binary size:', binaryAudio.length);
+      
+      // Prepare form data
+      const formData = new FormData();
+      const blob = new Blob([binaryAudio], { type: 'audio/webm' });
+      formData.append('file', blob, 'audio.webm');
+      formData.append('model', 'whisper-1');
+      
+      console.log('🚀 Sending request to OpenAI...');
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${errorText}`);
+      // Send to OpenAI Whisper
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+        },
+        body: formData,
+      });
+
+      console.log('📡 OpenAI response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ OpenAI API error:', errorText);
+        throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Transcription completed successfully');
+
+      return new Response(
+        JSON.stringify({ 
+          text: result.text,
+          success: true 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+
+    } catch (processingError) {
+      console.error('❌ Audio processing error:', processingError);
+      throw new Error(`Audio processing failed: ${processingError.message}`);
     }
 
-    const result = await response.json();
-    console.log('Transcription completed successfully');
-
-    return new Response(
-      JSON.stringify({ 
-        text: result.text,
-        success: true 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
   } catch (error) {
-    console.error('Transcription error:', error);
+    console.error('💥 Transcription error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        success: false 
+        success: false,
+        timestamp: new Date().toISOString()
       }),
       {
         status: 500,
