@@ -545,31 +545,12 @@ const Index = () => {
           </header>
 
           <div className="container mx-auto px-4 py-6 max-w-4xl">
-            {/* Header Section */}
-            <Collapsible open={showHeader} onOpenChange={setShowHeader}>
-              <div className="mb-6">
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="mb-4 flex items-center space-x-2 text-muted-foreground hover:text-foreground">
-                    <ChevronDown className={`w-4 h-4 transition-transform ${showHeader ? 'rotate-180' : ''}`} />
-                    <span className="text-sm">{showHeader ? 'Hide' : 'Show'} Info Banner</span>
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <Smartphone className="w-5 h-5 text-primary" />
-                      <span className="font-semibold text-primary">Mobile Speech Analysis</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Enable Local AI for enhanced analysis and better privacy. Switch to the AI tab to initialize your local model for improved speech insights.
-                    </p>
-                  </div>
-                  <p className="text-muted-foreground text-lg max-w-2xl mx-auto text-center">
-                    Transform your communication skills with AI-powered speech analysis and personalized feedback
-                  </p>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
+            {/* Simple info message */}
+            <div className="text-center mb-6">
+              <p className="text-muted-foreground text-sm">
+                Enable Local AI for enhanced analysis and better privacy
+              </p>
+            </div>
 
             {/* Collapsible Sections */}
             <div className="space-y-4">
