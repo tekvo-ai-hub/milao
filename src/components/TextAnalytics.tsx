@@ -66,27 +66,43 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
       let speechModelLoaded = false;
       try {
         // Try WebGPU first
+        console.log('Creating Whisper pipeline with WebGPU...');
         const speechModelWebGPU = await pipeline(
           'automatic-speech-recognition',
           'onnx-community/whisper-tiny.en',
           { device: 'webgpu' }
         );
-        console.log('✅ Whisper model loaded successfully with WebGPU');
-        setTranscriber(speechModelWebGPU);
-        setSpeechModelStatus('loaded');
-        speechModelLoaded = true;
+        
+        // Validate the model is a function
+        if (typeof speechModelWebGPU === 'function') {
+          console.log('✅ Whisper model loaded successfully with WebGPU and is callable');
+          setTranscriber(speechModelWebGPU);
+          setSpeechModelStatus('loaded');
+          speechModelLoaded = true;
+        } else {
+          console.error('❌ Whisper model loaded but is not a function:', typeof speechModelWebGPU);
+          throw new Error('Model is not callable');
+        }
       } catch (webgpuError) {
         console.warn('⚠️ WebGPU failed for Whisper, trying CPU:', webgpuError);
         try {
           // Fallback to CPU
+          console.log('Creating Whisper pipeline with CPU...');
           const speechModelCPU = await pipeline(
             'automatic-speech-recognition',
             'onnx-community/whisper-tiny.en'
           );
-          console.log('✅ Whisper model loaded successfully with CPU');
-          setTranscriber(speechModelCPU);
-          setSpeechModelStatus('loaded');
-          speechModelLoaded = true;
+          
+          // Validate the model is a function
+          if (typeof speechModelCPU === 'function') {
+            console.log('✅ Whisper model loaded successfully with CPU and is callable');
+            setTranscriber(speechModelCPU);
+            setSpeechModelStatus('loaded');
+            speechModelLoaded = true;
+          } else {
+            console.error('❌ Whisper model loaded with CPU but is not a function:', typeof speechModelCPU);
+            throw new Error('CPU model is not callable');
+          }
         } catch (cpuError) {
           console.error('❌ Failed to load Whisper model on CPU:', cpuError);
           setSpeechModelStatus('error');
@@ -222,6 +238,12 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
   };
 
   const transcribeAudio = async () => {
+    console.log('🎤 Transcribe Audio called');
+    console.log('Audio blob exists:', !!audioBlob);
+    console.log('Transcriber exists:', !!transcriber);
+    console.log('Transcriber type:', typeof transcriber);
+    console.log('Speech model status:', speechModelStatus);
+
     if (!audioBlob) {
       toast({
         title: "No Audio",
@@ -232,6 +254,7 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
     }
 
     if (!transcriber) {
+      console.error('❌ Transcriber is null/undefined');
       toast({
         title: "Model Not Ready",
         description: "Speech recognition model is not available. Please enable AI first.",
@@ -241,10 +264,20 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
     }
 
     if (typeof transcriber !== 'function') {
-      console.error('Transcriber is not a function:', typeof transcriber, transcriber);
+      console.error('❌ Transcriber is not a function:', typeof transcriber, transcriber);
       toast({
-        title: "Model Error",
-        description: "Speech recognition model is not properly initialized.",
+        title: "Model Error", 
+        description: "Speech recognition model is not properly initialized. Try reloading the models.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (speechModelStatus !== 'loaded') {
+      console.error('❌ Speech model status is not loaded:', speechModelStatus);
+      toast({
+        title: "Model Not Ready",
+        description: "Speech recognition model is not fully loaded yet. Please wait.",
         variant: "destructive",
       });
       return;
@@ -252,17 +285,19 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
 
     setIsTranscribing(true);
     try {
-      console.log('Starting local transcription with audio blob size:', audioBlob.size);
-      console.log('Transcriber type:', typeof transcriber);
+      console.log('🚀 Starting local transcription with audio blob size:', audioBlob.size);
+      console.log('🔧 Transcriber function verified, type:', typeof transcriber);
       
       // Convert blob to array buffer for whisper
       const arrayBuffer = await audioBlob.arrayBuffer();
-      console.log('Audio buffer size:', arrayBuffer.byteLength);
+      console.log('📊 Audio buffer size:', arrayBuffer.byteLength);
       
+      console.log('🎯 Calling transcriber function...');
       const result = await transcriber(arrayBuffer);
-      console.log('Transcription result:', result);
+      console.log('📝 Transcription result:', result);
 
       if (result?.text) {
+        console.log('✅ Transcription successful:', result.text);
         setTranscript(result.text);
         setText(result.text);
         onTranscriptGenerated?.(result.text);
@@ -271,10 +306,11 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
           description: "Audio has been successfully transcribed using local AI.",
         });
       } else {
+        console.error('❌ No text in transcription result:', result);
         throw new Error('No transcription result received');
       }
     } catch (error) {
-      console.error('Local transcription error:', error);
+      console.error('💥 Local transcription error:', error);
       toast({
         title: "Transcription Failed",
         description: `Failed to transcribe audio: ${error.message}`,
