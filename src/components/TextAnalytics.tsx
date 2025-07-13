@@ -53,95 +53,117 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
   const initializeAI = async () => {
     setIsInitializing(true);
     setAiEnabled(true);
+    setSpeechModelStatus('not-loaded');
+    setTextModelStatus('not-loaded');
     
     try {
-      console.log('Starting manual AI model initialization...');
+      console.log('Starting AI model initialization...');
       
       // Initialize speech recognition model
+      console.log('Loading Whisper speech recognition model...');
       setSpeechModelStatus('loading');
+      
+      let speechModelLoaded = false;
       try {
-        console.log('Loading Whisper speech recognition model...');
-        const speechModel = await pipeline(
+        // Try WebGPU first
+        const speechModelWebGPU = await pipeline(
           'automatic-speech-recognition',
           'onnx-community/whisper-tiny.en',
           { device: 'webgpu' }
         );
-        console.log('Whisper model loaded successfully with WebGPU');
-        setTranscriber(speechModel);
+        console.log('✅ Whisper model loaded successfully with WebGPU');
+        setTranscriber(speechModelWebGPU);
         setSpeechModelStatus('loaded');
-      } catch (whisperError) {
-        console.warn('WebGPU Whisper failed, trying CPU:', whisperError);
+        speechModelLoaded = true;
+      } catch (webgpuError) {
+        console.warn('⚠️ WebGPU failed for Whisper, trying CPU:', webgpuError);
         try {
-          const speechModel = await pipeline(
+          // Fallback to CPU
+          const speechModelCPU = await pipeline(
             'automatic-speech-recognition',
             'onnx-community/whisper-tiny.en'
           );
-          console.log('Whisper model loaded with CPU');
-          setTranscriber(speechModel);
+          console.log('✅ Whisper model loaded successfully with CPU');
+          setTranscriber(speechModelCPU);
           setSpeechModelStatus('loaded');
+          speechModelLoaded = true;
         } catch (cpuError) {
-          console.error('Failed to load Whisper model:', cpuError);
+          console.error('❌ Failed to load Whisper model on CPU:', cpuError);
           setSpeechModelStatus('error');
         }
       }
 
       // Initialize text generation model  
+      console.log('Loading text generation model...');
       setTextModelStatus('loading');
+      
+      let textModelLoaded = false;
       try {
-        console.log('Loading text generation model...');
-        const textModel = await pipeline(
+        // Try WebGPU first
+        const textModelWebGPU = await pipeline(
           'text-generation',
           'Xenova/distilgpt2',
           { device: 'webgpu' }
         );
-        console.log('Text generation model loaded successfully with WebGPU');
-        setTextGenerator(textModel);
+        console.log('✅ Text generation model loaded successfully with WebGPU');
+        setTextGenerator(textModelWebGPU);
         setTextModelStatus('loaded');
-      } catch (textError) {
-        console.warn('WebGPU text model failed, trying CPU:', textError);
+        textModelLoaded = true;
+      } catch (webgpuError) {
+        console.warn('⚠️ WebGPU failed for text model, trying CPU:', webgpuError);
         try {
-          const textModel = await pipeline(
+          // Fallback to CPU
+          const textModelCPU = await pipeline(
             'text-generation',
             'Xenova/distilgpt2'
           );
-          console.log('Text generation model loaded with CPU');
-          setTextGenerator(textModel);
+          console.log('✅ Text generation model loaded successfully with CPU');
+          setTextGenerator(textModelCPU);
           setTextModelStatus('loaded');
+          textModelLoaded = true;
         } catch (cpuError) {
-          console.error('Failed to load text generation model:', cpuError);
+          console.error('❌ Failed to load text generation model on CPU:', cpuError);
           setTextModelStatus('error');
         }
       }
 
-      // Check if at least one model loaded successfully
-      setTimeout(() => {
-        const speechLoaded = speechModelStatus === 'loaded' || transcriber;
-        const textLoaded = textModelStatus === 'loaded' || textGenerator;
-
-        if (speechLoaded && textLoaded) {
-          toast({
-            title: "AI Models Ready",
-            description: "All local AI models have been initialized successfully.",
-          });
-        } else if (speechLoaded || textLoaded) {
-          toast({
-            title: "Partial AI Setup",
-            description: "Some AI models loaded successfully. Check status below.",
-          });
-        } else {
-          toast({
-            title: "AI Setup Failed",
-            description: "Could not initialize AI models. Try refreshing the page.",
-            variant: "destructive",
-          });
-        }
-      }, 1000);
+      // Provide feedback based on what loaded
+      if (speechModelLoaded && textModelLoaded) {
+        console.log('🎉 All AI models initialized successfully!');
+        toast({
+          title: "AI Models Ready",
+          description: "All local AI models have been initialized successfully. You can now use speech-to-text and text analysis features.",
+        });
+      } else if (speechModelLoaded) {
+        console.log('⚠️ Only speech model loaded');
+        toast({
+          title: "Partial AI Setup",
+          description: "Speech recognition is ready, but text analysis failed to load. You can still transcribe audio.",
+        });
+      } else if (textModelLoaded) {
+        console.log('⚠️ Only text model loaded');
+        toast({
+          title: "Partial AI Setup",
+          description: "Text analysis is ready, but speech recognition failed to load. You can still analyze text manually.",
+        });
+      } else {
+        console.error('❌ No models loaded successfully');
+        toast({
+          title: "AI Initialization Failed",
+          description: "Could not initialize any AI models. Please check your browser compatibility and try again.",
+          variant: "destructive",
+        });
+        setAiEnabled(false);
+      }
 
     } catch (error) {
-      console.error('Complete AI model initialization failed:', error);
+      console.error('💥 Complete AI model initialization failed:', error);
+      setSpeechModelStatus('error');
+      setTextModelStatus('error');
+      setAiEnabled(false);
       toast({
         title: "AI Initialization Failed",
-        description: "Could not initialize local AI models.",
+        description: "Could not initialize local AI models. Your browser may not support WebAssembly or local AI models.",
         variant: "destructive",
       });
     } finally {
@@ -377,26 +399,60 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
         <CardContent className="space-y-4">
           {!aiEnabled ? (
             <div className="text-center space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 mb-2">
+                  <strong>Local AI Features:</strong>
+                </p>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• <strong>Speech-to-Text:</strong> Convert audio recordings to text using Whisper AI</li>
+                  <li>• <strong>Text Analysis:</strong> Analyze sentiment, structure, and get improvement suggestions</li>
+                  <li>• <strong>100% Private:</strong> All processing happens in your browser - no data sent to servers</li>
+                </ul>
+              </div>
+              
               <p className="text-sm text-muted-foreground">
-                Enable local AI models for speech-to-text transcription and text analysis. 
-                Models will be downloaded and run directly in your browser.
+                Click below to download and initialize the AI models. This may take a few minutes on first use.
               </p>
+              
               <Button
                 onClick={initializeAI}
                 disabled={isInitializing}
                 className="flex items-center space-x-2"
+                size="lg"
               >
                 {isInitializing ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Brain className="w-4 h-4" />
                 )}
-                <span>{isInitializing ? 'Initializing AI...' : 'Enable Local AI'}</span>
+                <span>{isInitializing ? 'Initializing AI Models...' : 'Enable Local AI'}</span>
               </Button>
+              
+              {isInitializing && (
+                <div className="text-xs text-muted-foreground">
+                  <p>Downloading models... This may take 1-3 minutes depending on your internet connection.</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              <h4 className="font-medium text-sm">AI Model Status:</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm">AI Model Status:</h4>
+                <Button
+                  onClick={initializeAI}
+                  disabled={isInitializing}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center space-x-1"
+                >
+                  {isInitializing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Brain className="w-3 h-3" />
+                  )}
+                  <span>Reload Models</span>
+                </Button>
+              </div>
               
               {/* Speech Recognition Model Status */}
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -426,16 +482,41 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
                 </div>
               </div>
 
-              {(speechModelStatus === 'error' || textModelStatus === 'error') && (
-                <Button
-                  onClick={initializeAI}
-                  disabled={isInitializing}
-                  variant="outline"
-                  className="w-full flex items-center space-x-2"
-                >
-                  <Brain className="w-4 h-4" />
-                  <span>Retry Model Loading</span>
-                </Button>
+              {/* Loading Progress */}
+              {isInitializing && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center space-x-2 text-blue-800">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm font-medium">Initializing AI Models...</span>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Please wait while we download and initialize the models. This may take a few minutes.
+                  </p>
+                </div>
+              )}
+
+              {/* Error State with Retry */}
+              {(speechModelStatus === 'error' || textModelStatus === 'error') && !isInitializing && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800 mb-2">
+                    Some models failed to load. This could be due to:
+                  </p>
+                  <ul className="text-xs text-red-700 space-y-1 mb-3">
+                    <li>• Browser compatibility issues</li>
+                    <li>• Insufficient memory</li>
+                    <li>• Network connection problems</li>
+                  </ul>
+                  <Button
+                    onClick={initializeAI}
+                    disabled={isInitializing}
+                    variant="outline"
+                    size="sm"
+                    className="w-full flex items-center space-x-2"
+                  >
+                    <Brain className="w-4 h-4" />
+                    <span>Retry Model Loading</span>
+                  </Button>
+                </div>
               )}
             </div>
           )}
