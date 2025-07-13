@@ -3,7 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText } from 'lucide-react';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu } from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
@@ -12,6 +13,7 @@ import ProgressReport from '@/components/ProgressReport';
 import Auth from '@/components/Auth';
 import LLMStatus from '@/components/LLMStatus';
 import TextAnalytics from '@/components/TextAnalytics';
+import { AppSidebar } from '@/components/AppSidebar';
 import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -419,6 +421,8 @@ const Index = () => {
       setCurrentAnalysis(recording.analysis);
       setCurrentDuration(recording.duration);
       setAnalysisOpen(true);
+      // Close history section when viewing analysis
+      setHistoryOpen(false);
     }
   };
 
@@ -507,63 +511,77 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
-      <div className="container mx-auto px-4 py-4 max-w-6xl">
-        {/* Collapsible Header */}
-        <Collapsible open={showHeader} onOpenChange={setShowHeader}>
-          <div className="text-center mb-4">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 mx-auto mb-4">
-                <ChevronDown className={`w-4 h-4 transition-transform ${showHeader ? 'rotate-180' : ''}`} />
-                <span className="font-semibold">VoicePro AI</span>
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Smartphone className="w-5 h-5 text-primary" />
-                  <span className="font-semibold text-primary">Mobile Speech Analysis</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Enable Local AI for enhanced analysis and better privacy. Switch to the AI tab to initialize your local model for improved speech insights.
-                </p>
-              </div>
-              <div className="flex items-center justify-between mb-6">
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AppSidebar
+          onHistoryClick={() => {
+            setHistoryOpen(!historyOpen);
+            if (progressOpen) setProgressOpen(false);
+          }}
+          onProgressClick={() => {
+            setProgressOpen(!progressOpen);
+            if (historyOpen) setHistoryOpen(false);
+          }}
+          historyOpen={historyOpen}
+          progressOpen={progressOpen}
+        />
+        
+        <main className="flex-1 bg-gradient-to-br from-background via-accent/20 to-background">
+          {/* Header with Sidebar Toggle */}
+          <header className="sticky top-0 z-10 bg-card/50 backdrop-blur-md border-b border-[var(--glass-border)] p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <SidebarTrigger className="p-2 hover:bg-accent/50 rounded-lg transition-colors">
+                  <Menu className="w-5 h-5" />
+                </SidebarTrigger>
                 <div className="flex items-center space-x-3">
-                  <div className="p-4 bg-gradient-to-r from-primary to-primary/80 rounded-2xl shadow-[var(--shadow-glow)]">
-                    <Smartphone className="w-8 h-8 text-primary-foreground" />
+                  <div className="p-3 bg-gradient-to-r from-primary to-primary/80 rounded-xl shadow-[var(--shadow-glow)]">
+                    <Smartphone className="w-6 h-6 text-primary-foreground" />
                   </div>
-                  <div className="text-left">
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                  <div>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
                       VoicePro AI
                     </h1>
-                    <p className="text-muted-foreground text-sm mt-1">AI Speech Coach</p>
+                    <p className="text-muted-foreground text-xs">AI Speech Coach</p>
                   </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2 text-muted-foreground bg-card/50 backdrop-blur-sm px-4 py-2 rounded-full border border-[var(--glass-border)]">
-                    <User className="w-4 h-4" />
-                    <span className="text-sm">
-                      {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={signOut}
-                    className="flex items-center space-x-2 bg-card/50 backdrop-blur-sm border-[var(--glass-border)]"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
-                  </Button>
                 </div>
               </div>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                Transform your communication skills with AI-powered speech analysis and personalized feedback
-              </p>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+              
+              <div className="flex items-center space-x-2 text-muted-foreground bg-card/50 backdrop-blur-sm px-3 py-2 rounded-full border border-[var(--glass-border)]">
+                <User className="w-4 h-4" />
+                <span className="text-sm">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                </span>
+              </div>
+            </div>
+          </header>
+
+          <div className="container mx-auto px-4 py-6 max-w-4xl">
+            {/* Header Section */}
+            <Collapsible open={showHeader} onOpenChange={setShowHeader}>
+              <div className="mb-6">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="mb-4 flex items-center space-x-2 text-muted-foreground hover:text-foreground">
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showHeader ? 'rotate-180' : ''}`} />
+                    <span className="text-sm">{showHeader ? 'Hide' : 'Show'} Info Banner</span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Smartphone className="w-5 h-5 text-primary" />
+                      <span className="font-semibold text-primary">Mobile Speech Analysis</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Enable Local AI for enhanced analysis and better privacy. Switch to the AI tab to initialize your local model for improved speech insights.
+                    </p>
+                  </div>
+                  <p className="text-muted-foreground text-lg max-w-2xl mx-auto text-center">
+                    Transform your communication skills with AI-powered speech analysis and personalized feedback
+                  </p>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
         {/* Collapsible Sections */}
         <div className="space-y-4">
@@ -819,7 +837,9 @@ const Index = () => {
           </Collapsible>
         </div>
       </div>
-    </div>
+    </main>
+  </div>
+</SidebarProvider>
   );
 };
 
