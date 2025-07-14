@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,29 +35,39 @@ serve(async (req) => {
       systemMessage = 'You are an expert speech coach and writer. Your task is to improve speech transcripts based on specific requirements while maintaining the original message and meaning. Provide only the improved script without explanations or additional commentary.';
       requestPrompt = prompt;
       
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: systemMessage },
-            { role: 'user', content: requestPrompt }
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${systemMessage}\n\n${requestPrompt}`
+                }
+              ]
+            }
           ],
-          temperature: 0.7,
-          max_tokens: 2000,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2000,
+          }
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        throw new Error(`Gemini API error: ${response.status}`);
       }
 
       const data = await response.json();
-      const improvedScript = data.choices[0].message.content;
+      
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+        throw new Error('Invalid response from Gemini API');
+      }
+      
+      const improvedScript = data.candidates[0].content.parts[0].text;
 
       return new Response(JSON.stringify({ 
         suggestions: improvedScript,
@@ -141,35 +151,42 @@ Please provide a comprehensive analysis in JSON format:
 
 Keep suggestions practical and achievable for the speaker's current level.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a speech coach specializing in vocabulary improvement and clear communication. Provide practical, actionable suggestions.'
-          },
-          { role: 'user', content: requestPrompt }
+        contents: [
+          {
+            parts: [
+              {
+                text: `You are a speech coach specializing in vocabulary improvement and clear communication. Provide practical, actionable suggestions.\n\n${requestPrompt}`
+              }
+            ]
+          }
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2000,
+        }
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
     
     let aiSuggestions;
     try {
-      aiSuggestions = JSON.parse(data.choices[0].message.content);
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+        throw new Error('Invalid response from Gemini API');
+      }
+      
+      const content = data.candidates[0].content.parts[0].text;
+      aiSuggestions = JSON.parse(content);
     } catch (parseError) {
       // Fallback if AI doesn't return valid JSON
       aiSuggestions = {

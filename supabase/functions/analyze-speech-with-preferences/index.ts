@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const ASSEMBLYAI_API_KEY = Deno.env.get('ASSEMBLYAI_API_KEY');
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const ASSEMBLYAI_BASE_URL = 'https://api.assemblyai.com/v2';
 
 // Initialize Supabase client
@@ -132,10 +132,10 @@ async function pollTranscription(transcriptId: string): Promise<any> {
   throw new Error('Transcription timed out');
 }
 
-// Generate personalized analysis using OpenAI
+// Generate personalized analysis using Google Gemini
 async function generatePersonalizedAnalysis(transcript: string, assemblyData: any, preferences: any): Promise<any> {
-  if (!OPENAI_API_KEY) {
-    throw new Error('OpenAI API key not configured');
+  if (!GEMINI_API_KEY) {
+    throw new Error('Gemini API key not configured');
   }
 
   // Build prompt based on user preferences
@@ -231,40 +231,45 @@ Make sure your feedback is ${preferences.feedback_style || 'constructive'} in to
 
   const prompt = buildAnalysisPrompt(transcript, assemblyData, preferences);
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
+      contents: [
         {
-          role: 'system',
-          content: 'You are an expert speech coach who provides personalized feedback based on individual preferences and goals. Always respond with valid JSON.'
-        },
-        {
-          role: 'user',
-          content: prompt
+          parts: [
+            {
+              text: `You are an expert speech coach who provides personalized feedback based on individual preferences and goals. Always respond with valid JSON.\n\n${prompt}`
+            }
+          ]
         }
       ],
-      temperature: 0.7,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2000,
+      }
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${await response.text()}`);
+    throw new Error(`Gemini API error: ${await response.text()}`);
   }
 
   const result = await response.json();
-  const content = result.choices[0].message.content;
+  
+  if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
+    throw new Error('Invalid response from Gemini API');
+  }
+
+  const content = result.candidates[0].content.parts[0].text;
   
   try {
     return JSON.parse(content);
   } catch (error) {
-    console.error('Failed to parse OpenAI response as JSON:', content);
-    throw new Error('Invalid response format from OpenAI');
+    console.error('Failed to parse Gemini response as JSON:', content);
+    throw new Error('Invalid response format from Gemini');
   }
 }
 
@@ -309,16 +314,16 @@ serve(async (req) => {
     const transcriptId = await submitTranscription(uploadUrl);
     const assemblyResult = await pollTranscription(transcriptId);
     
-    console.log('Generating personalized analysis with OpenAI...');
+    console.log('Generating personalized analysis with Google Gemini...');
     
-    // Generate personalized analysis with OpenAI
+    // Generate personalized analysis with Gemini
     const personalizedAnalysis = await generatePersonalizedAnalysis(
       assemblyResult.text,
       assemblyResult,
       preferences || {}
     );
 
-    // Combine AssemblyAI and OpenAI results
+    // Combine AssemblyAI and Gemini results
     const combinedAnalysis = {
       // AssemblyAI data
       transcript: assemblyResult.text,
@@ -339,7 +344,7 @@ serve(async (req) => {
       duration: assemblyResult.audio_duration,
       words: assemblyResult.words || [],
       
-      // OpenAI personalized analysis
+      // Gemini personalized analysis
       personalizedAnalysis,
       userPreferences: preferences,
     };
