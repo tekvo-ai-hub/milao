@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, Users, Award, TrendingUp, Star, CheckCircle, AlertCircle } from 'lucide-react';
+import { Target, Users, Award, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
 import type { ContentEvaluation as ContentEvaluationType } from '@/types/speechAnalysis';
 
 interface ContentEvaluationProps {
@@ -168,50 +168,6 @@ const ContentEvaluation: React.FC<ContentEvaluationProps> = ({ evaluation }) => 
         </CardContent>
       </Card>
 
-      {/* STAR Analysis - Optional */}
-      {evaluation.starAnalysis && evaluation.starAnalysis.overallStarScore > 0 && (
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-amber-700">
-              <Star className="w-5 h-5" />
-              <span>STAR Method Analysis</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-3 mb-4">
-                <span className="text-sm font-medium">STAR Score:</span>
-                <div className={`text-lg font-semibold ${getScoreColor(evaluation.starAnalysis.overallStarScore * 10)}`}>
-                  {evaluation.starAnalysis.overallStarScore}/10
-                </div>
-                <Progress value={evaluation.starAnalysis.overallStarScore * 10} className="flex-1 h-2" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <div className="bg-amber-50 p-2 rounded">
-                    <h4 className="font-medium text-sm text-amber-700 mb-1">Situation:</h4>
-                    <p className="text-xs text-gray-600">{evaluation.starAnalysis.situation}</p>
-                  </div>
-                  <div className="bg-amber-50 p-2 rounded">
-                    <h4 className="font-medium text-sm text-amber-700 mb-1">Task:</h4>
-                    <p className="text-xs text-gray-600">{evaluation.starAnalysis.task}</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="bg-amber-50 p-2 rounded">
-                    <h4 className="font-medium text-sm text-amber-700 mb-1">Action:</h4>
-                    <p className="text-xs text-gray-600">{evaluation.starAnalysis.action}</p>
-                  </div>
-                  <div className="bg-amber-50 p-2 rounded">
-                    <h4 className="font-medium text-sm text-amber-700 mb-1">Result:</h4>
-                    <p className="text-xs text-gray-600">{evaluation.starAnalysis.result}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

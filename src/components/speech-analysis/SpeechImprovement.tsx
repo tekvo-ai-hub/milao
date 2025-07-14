@@ -88,7 +88,11 @@ Improved Script:
         throw error;
       }
 
-      setImprovedScript(data.suggestions || 'Unable to generate improvement.');
+      if (!data || !data.suggestions) {
+        throw new Error('No response data received');
+      }
+
+      setImprovedScript(data.suggestions);
       
       toast({
         title: "Script Improved!",
