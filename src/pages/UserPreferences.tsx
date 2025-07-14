@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface UserPreferences {
   id?: string;
@@ -41,6 +42,7 @@ interface UserPreferences {
 const UserPreferences: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [preferences, setPreferences] = useState<UserPreferences>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,9 +134,20 @@ const UserPreferences: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">User Preferences</h1>
-        <p className="text-muted-foreground">Customize your speech analysis experience</p>
+      <div className="mb-6 flex items-center gap-4">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Home
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">User Preferences</h1>
+          <p className="text-muted-foreground">Customize your speech analysis experience</p>
+        </div>
       </div>
 
       <Tabs defaultValue="personal" className="space-y-6">
