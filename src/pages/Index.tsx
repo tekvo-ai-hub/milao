@@ -15,7 +15,7 @@ import Auth from '@/components/Auth';
 import LLMStatus from '@/components/LLMStatus';
 import TextAnalytics from '@/components/TextAnalytics';
 import { AppSidebar } from '@/components/AppSidebar';
-import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
+import { analyzeSpeech, AnalysisResult, generateDynamicMainPoint } from '@/utils/speechAnalysisAPI';
 import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
 import { analyzeWithPersonalizedFeedback, convertToLegacyFormat } from '@/utils/personalizedSpeechAnalysis';
 import { useToast } from '@/hooks/use-toast';
@@ -197,11 +197,7 @@ const Index = () => {
             ],
             ai_suggestions: {
               contentEvaluation: {
-                mainPoint: {
-                  identified: "Main topic discussed",
-                  clarity: 8,
-                  feedback: "Well expressed"
-                },
+                mainPoint: generateDynamicMainPoint(assemblyAIResult.transcript),
                 argumentStructure: {
                   hasStructure: true,
                   structure: "Conversational",

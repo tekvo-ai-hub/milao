@@ -63,7 +63,7 @@ const generateDynamicStrengths = (transcript: string, tone: string, clarityScore
   return strengths.slice(0, 3); // Limit to 3 strengths
 };
 
-const generateDynamicMainPoint = (transcript: string): { identified: string; clarity: number; feedback: string } => {
+export const generateDynamicMainPoint = (transcript: string): { identified: string; clarity: number; feedback: string } => {
   const words = transcript.toLowerCase();
   
   let mainPoint = "General discussion";
