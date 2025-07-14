@@ -157,16 +157,16 @@ const Index = () => {
           
           console.log('Using personalized analysis');
         } catch (personalizedError) {
-          console.warn('Personalized analysis failed, falling back to AssemblyAI:', personalizedError);
+          console.warn('Personalized analysis failed, falling back to VoicePro:', personalizedError);
           
-          // Fallback to AssemblyAI analysis
+          // Fallback to VoicePro analysis
           const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob);
-          console.log('AssemblyAI fallback result:', assemblyAIResult);
+          console.log('VoicePro fallback result:', assemblyAIResult);
           
           // Set transcript for TextAnalytics
           setTranscriptText(assemblyAIResult.transcript);
           
-          // Convert AssemblyAI result to our expected format
+          // Convert VoicePro result to our expected format
           analysis = {
             overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
             clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
@@ -186,7 +186,7 @@ const Index = () => {
               emotions: ['Neutral']
             },
             suggestions: [
-              "AssemblyAI analysis complete",
+              "VoicePro analysis complete",
               "Review the transcript for accuracy",
               "Consider the sentiment analysis insights"
             ],
@@ -293,7 +293,7 @@ const Index = () => {
         fetchRecordings();
         toast({
           title: "Analysis Complete!",
-          description: `Your speech analyzed with AssemblyAI`,
+          description: `VoicePro analysis done`,
         });
       }
       

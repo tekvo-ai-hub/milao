@@ -28,7 +28,10 @@ const SpeechAnalysis: React.FC<SpeechAnalysisProps> = ({ analysis, duration }) =
 
       {/* Speech Summary */}
       {analysis.ai_suggestions?.speechSummary && (
-        <SpeechSummary summary={analysis.ai_suggestions.speechSummary} />
+        <SpeechSummary 
+          summary={analysis.ai_suggestions.speechSummary} 
+          transcript={analysis.transcript}
+        />
       )}
 
       {/* Detailed Metrics */}

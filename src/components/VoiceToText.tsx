@@ -26,10 +26,10 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
       onTranscriptGenerated?.(result.transcript);
       toast({
         title: "Analysis Complete",
-        description: "Audio has been successfully analyzed using AssemblyAI.",
+        description: "VoicePro analysis done",
       });
     } catch (error) {
-      console.error('AssemblyAI analysis failed:', error);
+      console.error('VoicePro analysis failed:', error);
       toast({
         title: "Analysis Failed",
         description: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -78,7 +78,7 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
               <div className="text-center py-8">
                 <Cloud className="w-8 h-8 animate-pulse mx-auto mb-4 text-primary" />
                 <p className="text-muted-foreground">
-                  Analyzing speech with AssemblyAI...
+                  Analyzing speech with VoicePro...
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
                   Getting transcription, sentiment analysis, and speech insights
@@ -134,7 +134,7 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
               <div>
                 <p className="text-sm font-medium">Advanced Speech Analysis</p>
                 <p className="text-xs text-muted-foreground">
-                  Using AssemblyAI for transcription, sentiment analysis, and speech insights
+                  Using VoicePro for transcription, sentiment analysis, and speech insights
                 </p>
               </div>
             </div>
