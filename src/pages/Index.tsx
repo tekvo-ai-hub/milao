@@ -137,8 +137,12 @@ const Index = () => {
     try {
       console.log('Recording Complete Debug:', { duration, audioBlobSize: audioBlob.size });
       
+      console.log('About to call AssemblyAI analysis...');
+      
       // Use AssemblyAI for analysis
       const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob);
+      
+      console.log('AssemblyAI result received:', assemblyAIResult);
       
       // Set transcript for TextAnalytics
       setTranscriptText(assemblyAIResult.transcript);
@@ -212,7 +216,7 @@ const Index = () => {
       
       
       setCurrentAnalysis(analysis);
-      setCurrentDuration(duration);
+      setCurrentDuration(Math.floor(duration || 0));
       
       // Upload audio file to storage
       const fileName = `${user.id}/${Date.now()}-recording.webm`;
@@ -243,7 +247,7 @@ const Index = () => {
         .insert({
           user_id: user.id,
           title: `Recording ${new Date().toLocaleDateString()}`,
-          duration,
+          duration: Math.floor(duration || 0),
           overall_score: analysis.overall_score,
           clarity_score: analysis.clarity_score,
           pace: analysis.pace_analysis.words_per_minute,
