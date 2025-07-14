@@ -77,14 +77,16 @@ Instructions:
 Improved Script:
       `.trim();
 
-      const { data, error } = await supabase.functions.invoke('generate-speech-suggestions', {
+      const { data, error } = await supabase.functions.invoke('improve-speech', {
         body: { 
-          prompt: prompt,
-          type: 'improvement'
+          prompt: prompt
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Function invoke error:', error);
+        throw error;
+      }
 
       setImprovedScript(data.suggestions || 'Unable to generate improvement.');
       
