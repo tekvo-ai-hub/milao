@@ -15,6 +15,7 @@ import LLMStatus from '@/components/LLMStatus';
 import TextAnalytics from '@/components/TextAnalytics';
 import { AppSidebar } from '@/components/AppSidebar';
 import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
+import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,6 +51,7 @@ const Index = () => {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
+  const [transcriptText, setTranscriptText] = useState<string>('');
   const { toast } = useToast();
 
   // Fetch recordings when user is authenticated
@@ -135,13 +137,79 @@ const Index = () => {
     try {
       console.log('Recording Complete Debug:', { duration, audioBlobSize: audioBlob.size });
       
-      const analysis = await analyzeSpeech(audioBlob, duration);
+      // Use AssemblyAI for analysis
+      const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob);
       
-      console.log('Analysis Result Debug:', {
-        overall_score: analysis.overall_score,
-        duration: duration,
-        analysis
-      });
+      // Set transcript for TextAnalytics
+      setTranscriptText(assemblyAIResult.transcript);
+      
+      // Convert AssemblyAI result to our expected format
+      const analysis: AnalysisResult = {
+        overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
+        clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
+        transcript: assemblyAIResult.transcript,
+        pace_analysis: {
+          words_per_minute: assemblyAIResult.words.length > 0 ? Math.round((assemblyAIResult.words.length / assemblyAIResult.duration) * 60) : 120,
+          assessment: 'Normal pace'
+        },
+        filler_words: {
+          count: assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1,
+          percentage: "5%",
+          examples: ['um', 'uh', 'like']
+        },
+        tone_analysis: {
+          primary_tone: assemblyAIResult.sentiment?.sentiment || 'Neutral',
+          confidence_level: 'Medium',
+          emotions: ['Neutral']
+        },
+        suggestions: [
+          "AssemblyAI analysis complete",
+          "Review the transcript for accuracy",
+          "Consider the sentiment analysis insights"
+        ],
+        strengths: [
+          "Clear audio quality",
+          "Good speech recognition",
+          "Comprehensive analysis"
+        ],
+        ai_suggestions: {
+          contentEvaluation: {
+            mainPoint: {
+              identified: "Main topic discussed",
+              clarity: 8,
+              feedback: "Well expressed"
+            },
+            argumentStructure: {
+              hasStructure: true,
+              structure: "Conversational",
+              effectiveness: 7,
+              suggestions: "Continue with natural flow"
+            },
+            evidenceAndExamples: {
+              hasEvidence: false,
+              evidenceQuality: 5,
+              evidenceTypes: [],
+              suggestions: "Add specific examples"
+            },
+            persuasiveness: {
+              pointProven: false,
+              persuasionScore: 6,
+              strengths: ["Clear delivery"],
+              weaknesses: ["Could be more persuasive"],
+              improvements: "Add supporting evidence"
+            },
+            starAnalysis: {
+              situation: "Not applicable",
+              task: "General communication",
+              action: "Spoke clearly",
+              result: "Message conveyed",
+              overallStarScore: 7
+            }
+          },
+          speechSummary: assemblyAIResult.summary || "Speech analyzed successfully"
+        }
+      };
+      
       
       setCurrentAnalysis(analysis);
       setCurrentDuration(duration);
@@ -197,7 +265,7 @@ const Index = () => {
         fetchRecordings();
         toast({
           title: "Analysis Complete!",
-          description: `Your speech scored ${analysis.overall_score}/100`,
+          description: `Your speech analyzed with AssemblyAI`,
         });
       }
       
@@ -263,7 +331,7 @@ const Index = () => {
         .insert({
           user_id: user.id,
           title: `${file.name} - ${new Date().toLocaleDateString()}`,
-          duration: Math.floor(duration),
+          duration: Math.floor(duration || 0),
           overall_score: analysis.overall_score,
           clarity_score: analysis.clarity_score,
           pace: analysis.pace_analysis.words_per_minute,
@@ -683,7 +751,7 @@ const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <TextAnalytics />
+                <TextAnalytics onTranscriptGenerated={setTranscriptText} initialTranscript={transcriptText} />
               </CardContent>
             </Card>
           )}

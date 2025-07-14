@@ -34,14 +34,23 @@ interface TextAnalysisResult {
 interface TextAnalyticsProps {
   audioBlob?: Blob;
   onTranscriptGenerated?: (transcript: string) => void;
+  initialTranscript?: string;
 }
 
-const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGenerated }) => {
-  const [text, setText] = useState('');
+const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGenerated, initialTranscript }) => {
+  const [text, setText] = useState(initialTranscript || '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<TextAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState('text');
   const { toast } = useToast();
+
+  // Update text when initialTranscript changes
+  React.useEffect(() => {
+    if (initialTranscript) {
+      setText(initialTranscript);
+      setActiveTab('text');
+    }
+  }, [initialTranscript]);
 
   // Helper functions for analysis
   const extractKeyPoints = (text: string): string[] => {
