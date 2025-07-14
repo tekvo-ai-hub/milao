@@ -72,6 +72,7 @@ async function submitTranscription(uploadUrl: string): Promise<string> {
       language_code: 'en_us',
       punctuate: true,
       format_text: true,
+      disfluencies: true,
       // Enable speech analysis features
       speaker_labels: true,
       sentiment_analysis: true,
