@@ -679,11 +679,11 @@ const Index = () => {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Brain className="w-5 h-5 text-primary" />
-                  <span>Enable Local AI</span>
+                  <span>AI Analysis</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <LLMStatus />
+                <TextAnalytics />
               </CardContent>
             </Card>
           )}

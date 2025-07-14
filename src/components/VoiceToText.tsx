@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { AudioWaveform, Copy, Check, Loader2, Cloud, Cpu } from 'lucide-react';
-import { transcribeAudioWithAPI } from '@/utils/speechTranscriptionAPI';
+import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
 import { VoiceRecorder } from './VoiceRecorder';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,17 +21,17 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsTranscribing(true);
     try {
-      const result = await transcribeAudioWithAPI(audioBlob);
-      setTranscript(result);
-      onTranscriptGenerated?.(result);
+      const result = await analyzeAudioWithAssemblyAI(audioBlob);
+      setTranscript(result.transcript);
+      onTranscriptGenerated?.(result.transcript);
       toast({
-        title: "Transcription Complete",
-        description: "Audio has been successfully transcribed using cloud AI.",
+        title: "Analysis Complete",
+        description: "Audio has been successfully analyzed using AssemblyAI.",
       });
     } catch (error) {
-      console.error('Transcription failed:', error);
+      console.error('AssemblyAI analysis failed:', error);
       toast({
-        title: "Transcription Failed",
+        title: "Analysis Failed",
         description: error instanceof Error ? error.message : 'Unknown error occurred',
         variant: "destructive",
       });
@@ -78,10 +78,10 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
               <div className="text-center py-8">
                 <Cloud className="w-8 h-8 animate-pulse mx-auto mb-4 text-primary" />
                 <p className="text-muted-foreground">
-                  Converting speech to text using cloud AI...
+                  Analyzing speech with AssemblyAI...
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  This is much faster than local processing!
+                  Getting transcription, sentiment analysis, and speech insights
                 </p>
               </div>
             ) : (
@@ -129,15 +129,15 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
       {/* Info Card - Always show to explain the cloud processing */}
       <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
         <CardContent className="py-4">
-          <div className="flex items-center space-x-3">
-            <Cloud className="w-5 h-5 text-blue-500" />
-            <div>
-              <p className="text-sm font-medium">Fast Cloud Transcription</p>
-              <p className="text-xs text-muted-foreground">
-                Using OpenAI Whisper API for lightning-fast speech-to-text conversion
-              </p>
+            <div className="flex items-center space-x-3">
+              <Cloud className="w-5 h-5 text-blue-500" />
+              <div>
+                <p className="text-sm font-medium">Advanced Speech Analysis</p>
+                <p className="text-xs text-muted-foreground">
+                  Using AssemblyAI for transcription, sentiment analysis, and speech insights
+                </p>
+              </div>
             </div>
-          </div>
         </CardContent>
       </Card>
     </div>

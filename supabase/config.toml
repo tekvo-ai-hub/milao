@@ -1,1 +1,4 @@
 project_id = "hflfnvemuqilsvanyyqc"
+
+[functions.analyze-speech-assemblyai]
+verify_jwt = false
