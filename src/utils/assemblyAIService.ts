@@ -42,11 +42,19 @@ export const analyzeAudioWithAssemblyAI = async (audioBlob: Blob): Promise<Assem
   console.log('🎯 Starting AssemblyAI analysis...')
   
   try {
-    // Convert blob to base64
+    // Convert blob to base64 in chunks to prevent stack overflow
     const arrayBuffer = await audioBlob.arrayBuffer()
-    const base64Audio = btoa(
-      String.fromCharCode(...new Uint8Array(arrayBuffer))
-    )
+    const uint8Array = new Uint8Array(arrayBuffer)
+    
+    // Process in chunks to avoid "Maximum call stack size exceeded"
+    let binaryString = ''
+    const chunkSize = 8192
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize)
+      binaryString += String.fromCharCode(...chunk)
+    }
+    
+    const base64Audio = btoa(binaryString)
 
     const { data, error } = await supabase.functions.invoke('analyze-speech-assemblyai', {
       body: { audio: base64Audio }
