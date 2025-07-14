@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -77,16 +77,16 @@ Instructions:
 Improved Script:
       `.trim();
 
-      const { data, error } = await supabase.functions.invoke('analyze-text', {
+      const { data, error } = await supabase.functions.invoke('generate-speech-suggestions', {
         body: { 
-          text: prompt,
-          analysisType: 'improvement'
+          prompt: prompt,
+          type: 'improvement'
         }
       });
 
       if (error) throw error;
 
-      setImprovedScript(data.result || data.response || 'Unable to generate improvement.');
+      setImprovedScript(data.suggestions || 'Unable to generate improvement.');
       
       toast({
         title: "Script Improved!",
@@ -137,6 +137,9 @@ Improved Script:
             <Sparkles className="h-5 w-5" />
             Improvise Your Speech
           </DialogTitle>
+          <DialogDescription>
+            Select improvement areas and customize your speech with AI assistance.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">

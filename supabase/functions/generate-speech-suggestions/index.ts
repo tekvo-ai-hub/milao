@@ -9,11 +9,13 @@ const corsHeaders = {
 };
 
 interface SuggestionRequest {
-  transcript: string;
-  overallScore: number;
-  clarityScore: number;
-  fillerWords: string[];
-  primaryTone: string;
+  transcript?: string;
+  overallScore?: number;
+  clarityScore?: number;
+  fillerWords?: string[];
+  primaryTone?: string;
+  prompt?: string;
+  type?: string;
 }
 
 serve(async (req) => {
@@ -23,14 +25,59 @@ serve(async (req) => {
   }
 
   try {
-    const { transcript, overallScore, clarityScore, fillerWords, primaryTone }: SuggestionRequest = await req.json();
+    const { transcript, overallScore, clarityScore, fillerWords, primaryTone, prompt, type }: SuggestionRequest = await req.json();
 
-    const prompt = `Analyze this speech transcript and provide both vocabulary improvements and content evaluation:
+    let requestPrompt = '';
+    let systemMessage = '';
+
+    if (type === 'improvement' && prompt) {
+      // Handle speech improvement requests
+      systemMessage = 'You are an expert speech coach and writer. Your task is to improve speech transcripts based on specific requirements while maintaining the original message and meaning. Provide only the improved script without explanations or additional commentary.';
+      requestPrompt = prompt;
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemMessage },
+            { role: 'user', content: requestPrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const improvedScript = data.choices[0].message.content;
+
+      return new Response(JSON.stringify({ 
+        suggestions: improvedScript,
+        success: true 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Default behavior for regular speech analysis
+    if (!transcript) {
+      throw new Error('No transcript provided for analysis');
+    }
+
+    requestPrompt = `Analyze this speech transcript and provide both vocabulary improvements and content evaluation:
 
 Transcript: "${transcript}"
 Current Score: ${overallScore}/100
 Clarity Score: ${clarityScore}/100
-Detected Filler Words: ${fillerWords.join(', ')}
+Detected Filler Words: ${fillerWords?.join(', ') || 'None'}
 Primary Tone: ${primaryTone}
 
 Please provide a comprehensive analysis in JSON format:
@@ -107,7 +154,7 @@ Keep suggestions practical and achievable for the speaker's current level.`;
             role: 'system', 
             content: 'You are a speech coach specializing in vocabulary improvement and clear communication. Provide practical, actionable suggestions.'
           },
-          { role: 'user', content: prompt }
+          { role: 'user', content: requestPrompt }
         ],
         temperature: 0.7,
         max_tokens: 2000,
