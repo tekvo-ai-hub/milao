@@ -40,6 +40,7 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
   const [text, setText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<TextAnalysisResult | null>(null);
+  const [activeTab, setActiveTab] = useState('text');
   const { toast } = useToast();
 
   // Helper functions for analysis
@@ -116,14 +117,19 @@ const TextAnalytics: React.FC<TextAnalyticsProps> = ({ audioBlob, onTranscriptGe
 
   const handleTranscriptGenerated = (transcript: string) => {
     setText(transcript);
+    setActiveTab('text'); // Switch to text tab when transcript is generated
     onTranscriptGenerated?.(transcript);
+    toast({
+      title: "Transcript Generated",
+      description: "Transcript has been added to text analysis. You can now analyze it.",
+    });
   };
 
   return (
     <div className="space-y-6">
       <LocalAISetup />
 
-      <Tabs defaultValue="text" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="text">
             <FileText className="w-4 h-4 mr-2" />
