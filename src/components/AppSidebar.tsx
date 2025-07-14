@@ -1,5 +1,6 @@
 import React from 'react';
-import { History, TrendingUp, LogOut, User, Brain } from 'lucide-react';
+import { History, TrendingUp, LogOut, User, Brain, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -92,6 +93,20 @@ export function AppSidebar({ onHistoryClick, onProgressClick, onAiClick, history
               </div>
             )}
           </div>
+
+          {/* Preferences button */}
+          <Link to="/preferences">
+            <SidebarMenuButton
+              className={`
+                flex items-center space-x-3 w-full p-3 rounded-xl transition-all duration-200
+                hover:bg-accent/50 text-muted-foreground hover:text-foreground mb-2
+                ${collapsed ? 'justify-center' : ''}
+              `}
+            >
+              <Settings className="w-4 h-4 flex-shrink-0" />
+              {!collapsed && <span className="font-medium">Preferences</span>}
+            </SidebarMenuButton>
+          </Link>
 
           {/* Sign out button */}
           <SidebarMenuButton

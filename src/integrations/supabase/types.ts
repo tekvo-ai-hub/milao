@@ -89,6 +89,87 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          accent_challenges: string[] | null
+          age: number | null
+          confidence_level: string | null
+          created_at: string
+          display_name: string | null
+          feedback_style: string | null
+          fluency_level: string | null
+          gamification_enabled: boolean | null
+          id: string
+          learning_style: string | null
+          location: string | null
+          native_language: string | null
+          practice_frequency: string | null
+          preferred_format: string | null
+          recording_consent: boolean | null
+          reminders_enabled: boolean | null
+          role_models: string | null
+          scenario: string | null
+          speaking_goal: string | null
+          target_audience: string | null
+          tone_preference: string | null
+          updated_at: string
+          user_id: string
+          vocabulary_level: string | null
+        }
+        Insert: {
+          accent_challenges?: string[] | null
+          age?: number | null
+          confidence_level?: string | null
+          created_at?: string
+          display_name?: string | null
+          feedback_style?: string | null
+          fluency_level?: string | null
+          gamification_enabled?: boolean | null
+          id?: string
+          learning_style?: string | null
+          location?: string | null
+          native_language?: string | null
+          practice_frequency?: string | null
+          preferred_format?: string | null
+          recording_consent?: boolean | null
+          reminders_enabled?: boolean | null
+          role_models?: string | null
+          scenario?: string | null
+          speaking_goal?: string | null
+          target_audience?: string | null
+          tone_preference?: string | null
+          updated_at?: string
+          user_id: string
+          vocabulary_level?: string | null
+        }
+        Update: {
+          accent_challenges?: string[] | null
+          age?: number | null
+          confidence_level?: string | null
+          created_at?: string
+          display_name?: string | null
+          feedback_style?: string | null
+          fluency_level?: string | null
+          gamification_enabled?: boolean | null
+          id?: string
+          learning_style?: string | null
+          location?: string | null
+          native_language?: string | null
+          practice_frequency?: string | null
+          preferred_format?: string | null
+          recording_consent?: boolean | null
+          reminders_enabled?: boolean | null
+          role_models?: string | null
+          scenario?: string | null
+          speaking_goal?: string | null
+          target_audience?: string | null
+          tone_preference?: string | null
+          updated_at?: string
+          user_id?: string
+          vocabulary_level?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

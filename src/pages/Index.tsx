@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu } from 'lucide-react';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
@@ -16,6 +17,7 @@ import TextAnalytics from '@/components/TextAnalytics';
 import { AppSidebar } from '@/components/AppSidebar';
 import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
 import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
+import { analyzeWithPersonalizedFeedback, convertToLegacyFormat } from '@/utils/personalizedSpeechAnalysis';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -137,82 +139,104 @@ const Index = () => {
     try {
       console.log('Recording Complete Debug:', { duration, audioBlobSize: audioBlob.size });
       
-      console.log('About to call AssemblyAI analysis...');
+      let analysis: AnalysisResult;
       
-      // Use AssemblyAI for analysis
-      const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob);
-      
-      console.log('AssemblyAI result received:', assemblyAIResult);
-      
-      // Set transcript for TextAnalytics
-      setTranscriptText(assemblyAIResult.transcript);
-      
-      // Convert AssemblyAI result to our expected format
-      const analysis: AnalysisResult = {
-        overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
-        clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
-        transcript: assemblyAIResult.transcript,
-        pace_analysis: {
-          words_per_minute: assemblyAIResult.words.length > 0 ? Math.round((assemblyAIResult.words.length / assemblyAIResult.duration) * 60) : 120,
-          assessment: 'Normal pace'
-        },
-        filler_words: {
-          count: assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1,
-          percentage: "5%",
-          examples: ['um', 'uh', 'like']
-        },
-        tone_analysis: {
-          primary_tone: assemblyAIResult.sentiment?.sentiment || 'Neutral',
-          confidence_level: 'Medium',
-          emotions: ['Neutral']
-        },
-        suggestions: [
-          "AssemblyAI analysis complete",
-          "Review the transcript for accuracy",
-          "Consider the sentiment analysis insights"
-        ],
-        strengths: [
-          "Clear audio quality",
-          "Good speech recognition",
-          "Comprehensive analysis"
-        ],
-        ai_suggestions: {
-          contentEvaluation: {
-            mainPoint: {
-              identified: "Main topic discussed",
-              clarity: 8,
-              feedback: "Well expressed"
+      // Try personalized analysis first if user is authenticated
+      if (user?.id) {
+        try {
+          console.log('Attempting personalized analysis...');
+          const personalizedResult = await analyzeWithPersonalizedFeedback(audioBlob, user.id);
+          
+          console.log('Personalized analysis completed:', personalizedResult);
+          
+          // Set transcript for TextAnalytics
+          setTranscriptText(personalizedResult.transcript);
+          
+          // Convert to legacy format for compatibility
+          analysis = convertToLegacyFormat(personalizedResult);
+          
+          console.log('Using personalized analysis');
+        } catch (personalizedError) {
+          console.warn('Personalized analysis failed, falling back to AssemblyAI:', personalizedError);
+          
+          // Fallback to AssemblyAI analysis
+          const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob);
+          console.log('AssemblyAI fallback result:', assemblyAIResult);
+          
+          // Set transcript for TextAnalytics
+          setTranscriptText(assemblyAIResult.transcript);
+          
+          // Convert AssemblyAI result to our expected format
+          analysis = {
+            overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
+            clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
+            transcript: assemblyAIResult.transcript,
+            pace_analysis: {
+              words_per_minute: assemblyAIResult.words.length > 0 ? Math.round((assemblyAIResult.words.length / assemblyAIResult.duration) * 60) : 120,
+              assessment: 'Normal pace'
             },
-            argumentStructure: {
-              hasStructure: true,
-              structure: "Conversational",
-              effectiveness: 7,
-              suggestions: "Continue with natural flow"
+            filler_words: {
+              count: assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1,
+              percentage: "5%",
+              examples: ['um', 'uh', 'like']
             },
-            evidenceAndExamples: {
-              hasEvidence: false,
-              evidenceQuality: 5,
-              evidenceTypes: [],
-              suggestions: "Add specific examples"
+            tone_analysis: {
+              primary_tone: assemblyAIResult.sentiment?.sentiment || 'Neutral',
+              confidence_level: 'Medium',
+              emotions: ['Neutral']
             },
-            persuasiveness: {
-              pointProven: false,
-              persuasionScore: 6,
-              strengths: ["Clear delivery"],
-              weaknesses: ["Could be more persuasive"],
-              improvements: "Add supporting evidence"
-            },
-            starAnalysis: {
-              situation: "Not applicable",
-              task: "General communication",
-              action: "Spoke clearly",
-              result: "Message conveyed",
-              overallStarScore: 7
+            suggestions: [
+              "AssemblyAI analysis complete",
+              "Review the transcript for accuracy",
+              "Consider the sentiment analysis insights"
+            ],
+            strengths: [
+              "Clear audio quality",
+              "Good speech recognition",
+              "Comprehensive analysis"
+            ],
+            ai_suggestions: {
+              contentEvaluation: {
+                mainPoint: {
+                  identified: "Main topic discussed",
+                  clarity: 8,
+                  feedback: "Well expressed"
+                },
+                argumentStructure: {
+                  hasStructure: true,
+                  structure: "Conversational",
+                  effectiveness: 7,
+                  suggestions: "Continue with natural flow"
+                },
+                evidenceAndExamples: {
+                  hasEvidence: false,
+                  evidenceQuality: 5,
+                  evidenceTypes: [],
+                  suggestions: "Add specific examples"
+                },
+                persuasiveness: {
+                  pointProven: false,
+                  persuasionScore: 6,
+                  strengths: ["Clear delivery"],
+                  weaknesses: ["Could be more persuasive"],
+                  improvements: "Add supporting evidence"
+                },
+                starAnalysis: {
+                  situation: "Not applicable",
+                  task: "General communication",
+                  action: "Spoke clearly",
+                  result: "Message conveyed",
+                  overallStarScore: 7
+                }
+              },
+              speechSummary: assemblyAIResult.summary || "Speech analyzed successfully"
             }
-          },
-          speechSummary: assemblyAIResult.summary || "Speech analyzed successfully"
+          };
         }
-      };
+      } else {
+        // Fallback for non-authenticated users
+        analysis = await analyzeSpeech(audioBlob, duration);
+      }
       
       
       setCurrentAnalysis(analysis);
