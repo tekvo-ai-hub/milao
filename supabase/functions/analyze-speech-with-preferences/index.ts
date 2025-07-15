@@ -264,12 +264,31 @@ Make sure your feedback is ${preferences.feedback_style || 'constructive'} in to
   }
 
   const content = result.candidates[0].content.parts[0].text;
+  console.log('Raw Gemini response:', content);
   
   try {
-    return JSON.parse(content);
+    // Clean the response - remove markdown code blocks if present
+    let cleanedContent = content.trim();
+    
+    // Remove markdown code blocks
+    if (cleanedContent.startsWith('```json')) {
+      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    // Try to find JSON in the response if it's mixed with other text
+    const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanedContent = jsonMatch[0];
+    }
+    
+    console.log('Cleaned content for parsing:', cleanedContent);
+    return JSON.parse(cleanedContent);
   } catch (error) {
     console.error('Failed to parse Gemini response as JSON:', content);
-    throw new Error('Invalid response format from Gemini');
+    console.error('Parse error:', error);
+    throw new Error(`Invalid response format from Gemini: ${error.message}`);
   }
 }
 
