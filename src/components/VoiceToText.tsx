@@ -7,6 +7,7 @@ import { AudioWaveform, Copy, Check, Loader2, Cloud, Cpu } from 'lucide-react';
 import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
 import { VoiceRecorder } from './VoiceRecorder';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface VoiceToTextProps {
   onTranscriptGenerated?: (transcript: string) => void;
@@ -17,11 +18,12 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsTranscribing(true);
     try {
-      const result = await analyzeAudioWithAssemblyAI(audioBlob);
+      const result = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
       setTranscript(result.transcript);
       onTranscriptGenerated?.(result.transcript);
       toast({

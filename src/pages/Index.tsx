@@ -160,7 +160,7 @@ const Index = () => {
           console.warn('Personalized analysis failed, falling back to VoicePro:', personalizedError);
           
           // Fallback to VoicePro analysis
-          const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob);
+          const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
           console.log('VoicePro fallback result:', assemblyAIResult);
           
           // Set transcript for TextAnalytics
