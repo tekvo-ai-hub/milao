@@ -38,7 +38,7 @@ export interface AssemblyAIAnalysis {
   }>;
 }
 
-export const analyzeAudioWithAssemblyAI = async (audioBlob: Blob): Promise<AssemblyAIAnalysis> => {
+export const analyzeAudioWithAssemblyAI = async (audioBlob: Blob, userId?: string): Promise<AssemblyAIAnalysis> => {
   console.log('🎯 Starting AssemblyAI analysis...')
   
   try {
@@ -56,8 +56,11 @@ export const analyzeAudioWithAssemblyAI = async (audioBlob: Blob): Promise<Assem
     
     const base64Audio = btoa(binaryString)
 
-    const { data, error } = await supabase.functions.invoke('analyze-speech-assemblyai', {
-      body: { audio: base64Audio }
+    const { data, error } = await supabase.functions.invoke('analyze-speech-with-preferences', {
+      body: { 
+        audio: base64Audio,
+        userId: userId
+      }
     })
 
     if (error) {
