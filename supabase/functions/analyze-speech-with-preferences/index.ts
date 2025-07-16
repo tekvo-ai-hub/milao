@@ -434,6 +434,12 @@ serve(async (req) => {
     const transcriptId = await submitTranscription(uploadUrl);
     const assemblyResult = await pollTranscription(transcriptId);
     
+    // Ensure we have a valid transcript before proceeding
+    if (!assemblyResult.text || assemblyResult.text.trim().length === 0) {
+      throw new Error('No transcript text received from AssemblyAI');
+    }
+    
+    console.log('AssemblyAI transcription completed. Text length:', assemblyResult.text.length);
     console.log('Generating personalized analysis with local server...');
     
     // Generate personalized analysis with local server
