@@ -137,98 +137,83 @@ const Index = () => {
     setCurrentAudioBlob(audioBlob);
     setIsAnalyzing(true);
     try {
-      console.log('Recording Complete Debug:', { duration, audioBlobSize: audioBlob.size });
+      console.log('🎯 Starting fresh transcription analysis...', { duration, audioBlobSize: audioBlob.size });
       
       let analysis: AnalysisResult;
       
-      // Try personalized analysis first if user is authenticated
+      // Always use live transcription - no cached results
       if (user?.id) {
-        try {
-          console.log('Attempting personalized analysis...');
-          const personalizedResult = await analyzeWithPersonalizedFeedback(audioBlob, user.id);
-          
-          console.log('Personalized analysis completed:', personalizedResult);
-          
-          // Set transcript for TextAnalytics
-          setTranscriptText(personalizedResult.transcript);
-          
-          // Convert to legacy format for compatibility
-          analysis = convertToLegacyFormat(personalizedResult);
-          
-          console.log('Using personalized analysis');
-        } catch (personalizedError) {
-          console.warn('Personalized analysis failed, falling back to VoicePro:', personalizedError);
-          
-          // Fallback to VoicePro analysis
-          const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
-          console.log('VoicePro fallback result:', assemblyAIResult);
-          
-          // Set transcript for TextAnalytics
-          setTranscriptText(assemblyAIResult.transcript);
-          
-          // Convert VoicePro result to our expected format
-          analysis = {
-            overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
-            clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
-            transcript: assemblyAIResult.transcript,
-            pace_analysis: {
-              words_per_minute: assemblyAIResult.words.length > 0 ? Math.round((assemblyAIResult.words.length / assemblyAIResult.duration) * 60) : 120,
-              assessment: 'Normal pace'
-            },
-            filler_words: {
-              count: assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1,
-              percentage: "5%",
-              examples: ['um', 'uh', 'like']
-            },
-            tone_analysis: {
-              primary_tone: assemblyAIResult.sentiment?.sentiment || 'Neutral',
-              confidence_level: 'Medium',
-              emotions: ['Neutral']
-            },
-            suggestions: [
-              "VoicePro analysis complete",
-              "Review the transcript for accuracy",
-              "Consider the sentiment analysis insights"
-            ],
-            strengths: [
-              "Clear audio quality",
-              "Good speech recognition",
-              "Comprehensive analysis"
-            ],
-            ai_suggestions: {
-              contentEvaluation: {
-                mainPoint: generateDynamicMainPoint(assemblyAIResult.transcript),
-                argumentStructure: {
-                  hasStructure: true,
-                  structure: "Conversational",
-                  effectiveness: 7,
-                  suggestions: "Continue with natural flow"
-                },
-                evidenceAndExamples: {
-                  hasEvidence: false,
-                  evidenceQuality: 5,
-                  evidenceTypes: [],
-                  suggestions: "Add specific examples"
-                },
-                persuasiveness: {
-                  pointProven: false,
-                  persuasionScore: 6,
-                  strengths: ["Clear delivery"],
-                  weaknesses: ["Could be more persuasive"],
-                  improvements: "Add supporting evidence"
-                },
-                starAnalysis: {
-                  situation: "Not applicable",
-                  task: "General communication",
-                  action: "Spoke clearly",
-                  result: "Message conveyed",
-                  overallStarScore: 7
-                }
+        console.log('🔄 Using VoicePro for real-time analysis...');
+        
+        // Use VoicePro analysis for actual transcription
+        const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
+        console.log('✅ Live VoicePro analysis completed:', assemblyAIResult);
+        
+        // Set transcript for TextAnalytics
+        setTranscriptText(assemblyAIResult.transcript);
+        
+        // Convert VoicePro result to our expected format
+        analysis = {
+          overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
+          clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
+          transcript: assemblyAIResult.transcript,
+          pace_analysis: {
+            words_per_minute: assemblyAIResult.words.length > 0 ? Math.round((assemblyAIResult.words.length / assemblyAIResult.duration) * 60) : 120,
+            assessment: 'Normal pace'
+          },
+          filler_words: {
+            count: assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1,
+            percentage: "5%",
+            examples: ['um', 'uh', 'like']
+          },
+          tone_analysis: {
+            primary_tone: assemblyAIResult.sentiment?.sentiment || 'Neutral',
+            confidence_level: 'Medium',
+            emotions: ['Neutral']
+          },
+          suggestions: [
+            "VoicePro analysis complete",
+            "Review the transcript for accuracy",
+            "Consider the sentiment analysis insights"
+          ],
+          strengths: [
+            "Clear audio quality",
+            "Good speech recognition",
+            "Comprehensive analysis"
+          ],
+          ai_suggestions: {
+            contentEvaluation: {
+              mainPoint: generateDynamicMainPoint(assemblyAIResult.transcript),
+              argumentStructure: {
+                hasStructure: true,
+                structure: "Conversational",
+                effectiveness: 7,
+                suggestions: "Continue with natural flow"
               },
-              speechSummary: assemblyAIResult.summary || "Speech analyzed successfully"
-            }
-          };
-        }
+              evidenceAndExamples: {
+                hasEvidence: false,
+                evidenceQuality: 5,
+                evidenceTypes: [],
+                suggestions: "Add specific examples"
+              },
+              persuasiveness: {
+                pointProven: false,
+                persuasionScore: 6,
+                strengths: ["Clear delivery"],
+                weaknesses: ["Could be more persuasive"],
+                improvements: "Add supporting evidence"
+              },
+              starAnalysis: {
+                situation: "Not applicable",
+                task: "General communication",
+                action: "Spoke clearly",
+                result: "Message conveyed",
+                overallStarScore: 7
+              }
+            },
+            speechSummary: assemblyAIResult.summary || "Speech analyzed successfully"
+          }
+        };
       } else {
         // Fallback for non-authenticated users
         analysis = await analyzeSpeech(audioBlob, duration);
