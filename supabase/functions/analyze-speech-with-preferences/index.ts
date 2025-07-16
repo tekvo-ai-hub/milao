@@ -132,164 +132,265 @@ async function pollTranscription(transcriptId: string): Promise<any> {
   throw new Error('Transcription timed out');
 }
 
-// Generate personalized analysis using Google Gemini
+// Generate personalized analysis using local server
 async function generatePersonalizedAnalysis(transcript: string, assemblyData: any, preferences: any): Promise<any> {
-  if (!GEMINI_API_KEY) {
-    throw new Error('Gemini API key not configured');
+  try {
+    console.log('Connecting to local server for analysis...');
+    
+    // First, analyze the text using the local server's text analysis
+    const textAnalysisResponse = await fetch('http://localhost:3001/analyze/text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: transcript
+      })
+    });
+
+    let textAnalysisData = null;
+    if (textAnalysisResponse.ok) {
+      textAnalysisData = await textAnalysisResponse.json();
+      console.log('Local server text analysis result:', textAnalysisData);
+    } else {
+      console.warn('Local server text analysis failed, using fallback');
+    }
+
+    // Generate a structured analysis based on local server results and AssemblyAI data
+    const analysis = generateStructuredAnalysis(transcript, assemblyData, preferences, textAnalysisData);
+    
+    return analysis;
+  } catch (error) {
+    console.error('Error connecting to local server:', error);
+    // Fallback to a basic analysis if local server fails
+    return generateFallbackAnalysis(transcript, assemblyData, preferences);
   }
-
-  // Build prompt based on user preferences
-  const buildAnalysisPrompt = (transcript: string, assemblyData: any, preferences: any): string => {
-    let prompt = `You are an expert speech coach analyzing a speech transcript. Please provide personalized feedback based on the user's preferences and goals.
-
-TRANSCRIPT TO ANALYZE:
-"${transcript}"
-
-TECHNICAL DATA FROM ASSEMBLYAI:
-- Confidence: ${assemblyData.confidence || 'N/A'}
-- Sentiment: ${assemblyData.sentiment?.sentiment || 'N/A'} (${assemblyData.sentiment?.confidence || 'N/A'} confidence)
-- Duration: ${assemblyData.duration || 'N/A'} ms
-- Disfluencies detected: ${assemblyData.words?.filter((w: any) => w.text.includes('[uh]') || w.text.includes('[um]')).length || 0}
-
-USER PREFERENCES AND CONTEXT:
-`;
-
-    if (preferences.speaking_goal) {
-      prompt += `- Speaking Goal: ${preferences.speaking_goal}\n`;
-    }
-    if (preferences.target_audience) {
-      prompt += `- Target Audience: ${preferences.target_audience}\n`;
-    }
-    if (preferences.scenario) {
-      prompt += `- Typical Scenario: ${preferences.scenario}\n`;
-    }
-    if (preferences.native_language) {
-      prompt += `- Native Language: ${preferences.native_language}\n`;
-    }
-    if (preferences.fluency_level) {
-      prompt += `- Current Fluency Level: ${preferences.fluency_level}\n`;
-    }
-    if (preferences.confidence_level) {
-      prompt += `- Confidence Level: ${preferences.confidence_level}\n`;
-    }
-    if (preferences.accent_challenges && preferences.accent_challenges.length > 0) {
-      prompt += `- Accent Challenges: ${preferences.accent_challenges.join(', ')}\n`;
-    }
-    if (preferences.tone_preference) {
-      prompt += `- Preferred Tone: ${preferences.tone_preference}\n`;
-    }
-    if (preferences.feedback_style) {
-      prompt += `- Feedback Style Preference: ${preferences.feedback_style}\n`;
-    }
-    if (preferences.learning_style) {
-      prompt += `- Learning Style: ${preferences.learning_style}\n`;
-    }
-    if (preferences.role_models) {
-      prompt += `- Speaking Role Models: ${preferences.role_models}\n`;
-    }
-
-    prompt += `
-ANALYSIS REQUIREMENTS:
-Please provide a comprehensive speech analysis with the following structure:
-
-1. OVERALL ASSESSMENT (score 1-100 with explanation)
-2. SPECIFIC AREAS:
-   - Clarity and Pronunciation (score 1-100)
-   - Speaking Pace and Rhythm (score 1-100) 
-   - Filler Words and Disfluencies (count and score 1-100)
-   - Tone and Delivery (assessment based on user's preferred tone)
-   - Content Organization and Flow
-
-3. PERSONALIZED RECOMMENDATIONS:
-   - Focus on the user's stated goals and challenges
-   - Provide actionable advice that matches their learning style
-   - Consider their target audience and typical scenarios
-   - Suggest specific exercises or techniques
-
-4. STRENGTHS TO BUILD ON
-5. PRIORITY IMPROVEMENT AREAS (max 3)
-
-RESPONSE FORMAT: Provide a JSON object with this structure:
-{
-  "overallScore": number,
-  "clarityScore": number,
-  "paceScore": number,
-  "fillerWordsCount": number,
-  "fillerWordsScore": number,
-  "toneAssessment": "string",
-  "recommendations": ["array of specific recommendations"],
-  "strengths": ["array of identified strengths"],
-  "priorityAreas": ["array of max 3 priority areas"],
-  "personalizedFeedback": "detailed feedback based on user preferences",
-  "actionableSteps": ["array of specific next steps"]
 }
 
-Make sure your feedback is ${preferences.feedback_style || 'constructive'} in tone and appropriate for someone with ${preferences.fluency_level || 'intermediate'} fluency level.`;
-
-    return prompt;
+function generateStructuredAnalysis(transcript: string, assemblyData: any, preferences: any, textAnalysis: any): any {
+  // Calculate scores based on AssemblyAI data and text analysis
+  const words = transcript.split(' ').filter(w => w.trim());
+  const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const avgWordsPerSentence = words.length / Math.max(sentences.length, 1);
+  
+  // Extract filler words and calculate scores
+  const fillerWords = assemblyData.words?.filter((word: any) => 
+    ['um', 'uh', 'ah', 'like', 'you know', 'so', 'well', 'actually', 'basically'].includes(word.text.toLowerCase())
+  ) || [];
+  
+  const fillerWordsCount = fillerWords.length;
+  const fillerWordsScore = Math.max(0, 100 - (fillerWordsCount / words.length) * 500);
+  
+  // Calculate clarity and pace scores
+  const clarityScore = assemblyData.confidence ? Math.round(assemblyData.confidence * 100) : 75;
+  const paceScore = avgWordsPerSentence > 20 ? 60 : avgWordsPerSentence < 5 ? 65 : 85;
+  const overallScore = Math.round((clarityScore + paceScore + fillerWordsScore) / 3);
+  
+  // Generate personalized recommendations based on preferences
+  const recommendations = generatePersonalizedRecommendations(preferences, overallScore, clarityScore, paceScore, fillerWordsCount);
+  
+  // Determine tone based on text analysis sentiment
+  let tone = 'neutral and conversational';
+  let confidence = 0.5;
+  
+  if (textAnalysis?.analysis) {
+    confidence = textAnalysis.analysis.confidence || 0.5;
+    switch (textAnalysis.analysis.sentiment) {
+      case 'POSITIVE':
+        tone = 'confident and positive';
+        break;
+      case 'NEGATIVE':
+        tone = 'concerned or hesitant';
+        break;
+      default:
+        tone = 'neutral and conversational';
+    }
+  }
+  
+  return {
+    overallScore,
+    clarityScore,
+    paceScore,
+    fillerWordsCount,
+    fillerWordsScore: Math.round(fillerWordsScore),
+    toneAssessment: `The tone is ${tone}, with a confidence level of ${Math.round(confidence * 100)}%. ${generateToneGuidance(preferences, tone)}`,
+    recommendations,
+    strengths: generateStrengths(overallScore, clarityScore, paceScore, preferences),
+    priorityAreas: generatePriorityAreas(overallScore, clarityScore, paceScore, fillerWordsCount),
+    personalizedFeedback: generatePersonalizedFeedback(transcript, overallScore, preferences, tone),
+    actionableSteps: generateActionableSteps(preferences, overallScore, clarityScore, fillerWordsCount)
   };
+}
 
-  const prompt = buildAnalysisPrompt(transcript, assemblyData, preferences);
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: `You are an expert speech coach who provides personalized feedback based on individual preferences and goals. Always respond with valid JSON.\n\n${prompt}`
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2000,
-      }
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${await response.text()}`);
-  }
-
-  const result = await response.json();
+function generatePersonalizedRecommendations(preferences: any, overallScore: number, clarityScore: number, paceScore: number, fillerWordsCount: number): string[] {
+  const recommendations = [];
   
-  if (!result.candidates || !result.candidates[0] || !result.candidates[0].content) {
-    throw new Error('Invalid response from Gemini API');
+  if (fillerWordsCount > 3) {
+    recommendations.push("Practice recording yourself and identifying filler words. Try pausing instead of using 'um' or 'uh'.");
   }
-
-  const content = result.candidates[0].content.parts[0].text;
-  console.log('Raw Gemini response:', content);
   
-  try {
-    // Clean the response - remove markdown code blocks if present
-    let cleanedContent = content.trim();
-    
-    // Remove markdown code blocks
-    if (cleanedContent.startsWith('```json')) {
-      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (cleanedContent.startsWith('```')) {
-      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
-    
-    // Try to find JSON in the response if it's mixed with other text
-    const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanedContent = jsonMatch[0];
-    }
-    
-    console.log('Cleaned content for parsing:', cleanedContent);
-    return JSON.parse(cleanedContent);
-  } catch (error) {
-    console.error('Failed to parse Gemini response as JSON:', content);
-    console.error('Parse error:', error);
-    throw new Error(`Invalid response format from Gemini: ${error.message}`);
+  if (paceScore < 70) {
+    recommendations.push("Work on your pacing. Practice speaking slowly and deliberately, using strategic pauses for emphasis.");
   }
+  
+  if (clarityScore < 80) {
+    recommendations.push("Focus on clear articulation. Practice tongue twisters and speak more slowly to improve clarity.");
+  }
+  
+  if (preferences?.speaking_goal?.includes('presentation')) {
+    recommendations.push("Practice your presentation structure. Use clear transitions between sections.");
+  }
+  
+  if (preferences?.target_audience?.includes('business')) {
+    recommendations.push("Use professional language and maintain confident delivery for business audiences.");
+  }
+  
+  if (preferences?.confidence_level === 'low') {
+    recommendations.push("Build confidence through regular practice. Start with shorter speeches and gradually increase length.");
+  }
+  
+  return recommendations.slice(0, 6); // Limit to 6 recommendations
+}
+
+function generateToneGuidance(preferences: any, currentTone: string): string {
+  const preferredTone = preferences?.tone_preference || 'professional';
+  
+  if (preferredTone === 'conversational' && currentTone.includes('confident')) {
+    return "Your current tone aligns well with your conversational preference.";
+  } else if (preferredTone === 'professional' && currentTone.includes('neutral')) {
+    return "Consider adding more authority and confidence to match your professional tone preference.";
+  } else if (preferredTone === 'enthusiastic' && !currentTone.includes('positive')) {
+    return "Try to inject more energy and enthusiasm into your delivery.";
+  }
+  
+  return "Continue developing your natural speaking style.";
+}
+
+function generateStrengths(overallScore: number, clarityScore: number, paceScore: number, preferences: any): string[] {
+  const strengths = [];
+  
+  if (clarityScore >= 80) {
+    strengths.push("Clear articulation and pronunciation");
+  }
+  
+  if (paceScore >= 80) {
+    strengths.push("Good speaking pace and rhythm");
+  }
+  
+  if (overallScore >= 75) {
+    strengths.push("Strong overall communication skills");
+  }
+  
+  if (preferences?.native_language && preferences.native_language !== 'English') {
+    strengths.push("Good command of English as a second language");
+  }
+  
+  if (strengths.length === 0) {
+    strengths.push("Willingness to practice and improve");
+  }
+  
+  return strengths;
+}
+
+function generatePriorityAreas(overallScore: number, clarityScore: number, paceScore: number, fillerWordsCount: number): string[] {
+  const areas = [];
+  
+  if (fillerWordsCount > 5) {
+    areas.push("Reduce filler words significantly");
+  }
+  
+  if (clarityScore < 70) {
+    areas.push("Improve speech clarity and pronunciation");
+  }
+  
+  if (paceScore < 70) {
+    areas.push("Develop better pacing and rhythm");
+  }
+  
+  if (areas.length === 0 && overallScore < 80) {
+    areas.push("Build overall confidence and fluency");
+  }
+  
+  return areas.slice(0, 3); // Max 3 priority areas
+}
+
+function generatePersonalizedFeedback(transcript: string, overallScore: number, preferences: any, tone: string): string {
+  let feedback = `Your speech demonstrates `;
+  
+  if (overallScore >= 80) {
+    feedback += "strong communication skills. ";
+  } else if (overallScore >= 60) {
+    feedback += "good potential with room for improvement. ";
+  } else {
+    feedback += "areas that need focused attention. ";
+  }
+  
+  if (preferences?.speaking_goal) {
+    feedback += `For your goal of ${preferences.speaking_goal}, `;
+    if (overallScore >= 75) {
+      feedback += "you're on the right track. ";
+    } else {
+      feedback += "focus on building confidence through regular practice. ";
+    }
+  }
+  
+  if (preferences?.native_language && preferences.native_language !== 'English') {
+    feedback += `Your progress in English is commendable. `;
+  }
+  
+  return feedback + "Continue practicing to achieve your speaking goals.";
+}
+
+function generateActionableSteps(preferences: any, overallScore: number, clarityScore: number, fillerWordsCount: number): string[] {
+  const steps = [];
+  
+  steps.push("Record yourself speaking for 2-3 minutes daily and review for improvement areas");
+  
+  if (fillerWordsCount > 3) {
+    steps.push("Practice the 'pause technique' - take a breath instead of using filler words");
+  }
+  
+  if (clarityScore < 80) {
+    steps.push("Read aloud for 10 minutes daily, focusing on clear pronunciation");
+  }
+  
+  if (preferences?.speaking_goal?.includes('presentation')) {
+    steps.push("Practice your next presentation in front of a mirror or small audience");
+  } else {
+    steps.push("Practice speaking on topics you're passionate about to build fluency");
+  }
+  
+  return steps;
+}
+
+function generateFallbackAnalysis(transcript: string, assemblyData: any, preferences: any): any {
+  // Provide a basic analysis when local server is unavailable
+  const words = transcript.split(' ').filter(w => w.trim());
+  const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  
+  return {
+    overallScore: 70,
+    clarityScore: 75,
+    paceScore: 70,
+    fillerWordsCount: Math.floor(words.length * 0.02), // Estimate 2% filler words
+    fillerWordsScore: 80,
+    toneAssessment: "Analysis service unavailable - local server connection failed. Your speech appears conversational.",
+    recommendations: [
+      "Practice speaking more slowly and clearly",
+      "Record yourself to identify areas for improvement",
+      "Focus on reducing filler words",
+      "Work on maintaining consistent pacing"
+    ],
+    strengths: ["Clear articulation", "Good content structure"],
+    priorityAreas: ["Reduce filler words", "Improve pacing consistency"],
+    personalizedFeedback: `Your speech shows good potential. The local analysis server is currently unavailable, but continue practicing to improve clarity and confidence.`,
+    actionableSteps: [
+      "Practice your speech multiple times",
+      "Record and review your delivery",
+      "Focus on eliminating unnecessary words",
+      "Work on maintaining steady pacing"
+    ]
+  };
 }
 
 serve(async (req) => {
@@ -333,9 +434,9 @@ serve(async (req) => {
     const transcriptId = await submitTranscription(uploadUrl);
     const assemblyResult = await pollTranscription(transcriptId);
     
-    console.log('Generating personalized analysis with Google Gemini...');
+    console.log('Generating personalized analysis with local server...');
     
-    // Generate personalized analysis with Gemini
+    // Generate personalized analysis with local server
     const personalizedAnalysis = await generatePersonalizedAnalysis(
       assemblyResult.text,
       assemblyResult,
@@ -363,7 +464,7 @@ serve(async (req) => {
       duration: assemblyResult.audio_duration,
       words: assemblyResult.words || [],
       
-      // Gemini personalized analysis
+      // Local server personalized analysis
       personalizedAnalysis,
       userPreferences: preferences,
     };
