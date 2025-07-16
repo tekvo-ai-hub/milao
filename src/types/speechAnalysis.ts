@@ -38,6 +38,20 @@ export interface AISuggestions {
   speechSummary?: string;
 }
 
+export interface PersonalizedAnalysis {
+  overallScore: number;
+  clarityScore: number;
+  paceScore: number;
+  fillerWordsCount: number;
+  fillerWordsScore: number;
+  toneAssessment: string;
+  recommendations: string[];
+  strengths: string[];
+  priorityAreas: string[];
+  personalizedFeedback: string;
+  actionableSteps: string[];
+}
+
 export interface AnalysisResult {
   overall_score: number;
   clarity_score: number;
@@ -58,5 +72,6 @@ export interface AnalysisResult {
   suggestions: string[];
   strengths: string[];
   ai_suggestions?: AISuggestions;
+  personalizedAnalysis?: PersonalizedAnalysis;
   transcript?: string;
 }

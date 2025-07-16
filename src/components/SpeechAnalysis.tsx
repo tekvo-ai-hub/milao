@@ -5,6 +5,7 @@ import StrengthsSection from './speech-analysis/StrengthsSection';
 
 import ContentEvaluation from './speech-analysis/ContentEvaluation';
 import GeneralSuggestions from './speech-analysis/GeneralSuggestions';
+import PriorityAreas from './speech-analysis/PriorityAreas';
 import SpeechSummary from './speech-analysis/SpeechSummary';
 import type { AnalysisResult } from '@/types/speechAnalysis';
 
@@ -24,7 +25,11 @@ const SpeechAnalysis: React.FC<SpeechAnalysisProps> = ({ analysis, duration }) =
         <p className="text-muted-foreground mt-2">Comprehensive evaluation of your speech performance</p>
       </div>
       {/* Overall Score */}
-      <OverallScoreCard score={analysis.overall_score} duration={duration} />
+      <OverallScoreCard 
+        score={analysis.overall_score} 
+        duration={duration}
+        personalizedFeedback={analysis.personalizedAnalysis?.personalizedFeedback}
+      />
 
       {/* Speech Summary */}
       {analysis.ai_suggestions?.speechSummary && (
@@ -35,7 +40,10 @@ const SpeechAnalysis: React.FC<SpeechAnalysisProps> = ({ analysis, duration }) =
       )}
 
       {/* Detailed Metrics */}
-      <DetailedMetrics analysis={analysis} />
+      <DetailedMetrics 
+        analysis={analysis} 
+        toneAssessment={analysis.personalizedAnalysis?.toneAssessment}
+      />
 
       {/* Strengths */}
       <StrengthsSection strengths={analysis.strengths} />
@@ -45,8 +53,16 @@ const SpeechAnalysis: React.FC<SpeechAnalysisProps> = ({ analysis, duration }) =
         <ContentEvaluation evaluation={analysis.ai_suggestions.contentEvaluation} />
       )}
 
+      {/* Priority Areas */}
+      {analysis.personalizedAnalysis?.priorityAreas && (
+        <PriorityAreas priorityAreas={analysis.personalizedAnalysis.priorityAreas} />
+      )}
+
       {/* General Suggestions */}
-      <GeneralSuggestions suggestions={analysis.suggestions} />
+      <GeneralSuggestions 
+        suggestions={analysis.suggestions} 
+        actionableSteps={analysis.personalizedAnalysis?.actionableSteps}
+      />
     </div>
   );
 };

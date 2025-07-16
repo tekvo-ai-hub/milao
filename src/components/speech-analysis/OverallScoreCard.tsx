@@ -6,9 +6,10 @@ import { TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
 interface OverallScoreCardProps {
   score: number;
   duration: number;
+  personalizedFeedback?: string;
 }
 
-const OverallScoreCard: React.FC<OverallScoreCardProps> = ({ score, duration }) => {
+const OverallScoreCard: React.FC<OverallScoreCardProps> = ({ score, duration, personalizedFeedback }) => {
   // Ensure score is valid and fallback to 0 if not
   const validScore = typeof score === 'number' && !isNaN(score) ? Math.round(score) : 0;
   
@@ -61,6 +62,13 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({ score, duration }) 
             <p className="text-lg font-medium">Recording Duration</p>
             <p className="text-2xl font-bold text-primary">{formatDuration(duration)}</p>
           </div>
+          
+          {personalizedFeedback && (
+            <div className="text-center space-y-2 p-4 bg-white/50 dark:bg-gray-800/50 rounded-lg border">
+              <p className="text-sm font-medium text-muted-foreground">Personalized Feedback</p>
+              <p className="text-sm text-foreground leading-relaxed">{personalizedFeedback}</p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

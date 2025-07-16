@@ -154,15 +154,15 @@ const Index = () => {
         
         // Convert VoicePro result to our expected format
         analysis = {
-          overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
-          clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
+          overall_score: assemblyAIResult.personalizedAnalysis?.overallScore || (assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85),
+          clarity_score: assemblyAIResult.personalizedAnalysis?.clarityScore || (assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85),
           transcript: assemblyAIResult.transcript,
           pace_analysis: {
             words_per_minute: assemblyAIResult.words.length > 0 ? Math.round((assemblyAIResult.words.length / assemblyAIResult.duration) * 60) : 120,
             assessment: 'Normal pace'
           },
           filler_words: {
-            count: assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1,
+            count: assemblyAIResult.personalizedAnalysis?.fillerWordsCount || (assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1),
             percentage: "5%",
             examples: ['um', 'uh', 'like']
           },
@@ -171,16 +171,17 @@ const Index = () => {
             confidence_level: 'Medium',
             emotions: ['Neutral']
           },
-          suggestions: [
+          suggestions: assemblyAIResult.personalizedAnalysis?.recommendations || [
             "VoicePro analysis complete",
             "Review the transcript for accuracy",
             "Consider the sentiment analysis insights"
           ],
-          strengths: [
+          strengths: assemblyAIResult.personalizedAnalysis?.strengths || [
             "Clear audio quality",
             "Good speech recognition",
             "Comprehensive analysis"
           ],
+          personalizedAnalysis: assemblyAIResult.personalizedAnalysis,
           ai_suggestions: {
             contentEvaluation: {
               mainPoint: generateDynamicMainPoint(assemblyAIResult.transcript),

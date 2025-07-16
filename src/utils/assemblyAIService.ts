@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import type { PersonalizedAnalysis } from '@/types/speechAnalysis'
 
 export interface AssemblyAIAnalysis {
   transcript: string;
@@ -9,6 +10,7 @@ export interface AssemblyAIAnalysis {
     confidence: number;
     text: string;
   } | null;
+  personalizedAnalysis?: PersonalizedAnalysis;
   entities: Array<{
     entity_type: string;
     text: string;

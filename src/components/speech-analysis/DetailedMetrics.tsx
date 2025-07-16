@@ -7,9 +7,10 @@ import type { AnalysisResult } from '@/types/speechAnalysis';
 
 interface DetailedMetricsProps {
   analysis: AnalysisResult;
+  toneAssessment?: string;
 }
 
-const DetailedMetrics: React.FC<DetailedMetricsProps> = ({ analysis }) => {
+const DetailedMetrics: React.FC<DetailedMetricsProps> = ({ analysis, toneAssessment }) => {
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
     if (score >= 60) return 'text-yellow-600';
@@ -105,7 +106,7 @@ const DetailedMetrics: React.FC<DetailedMetricsProps> = ({ analysis }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Badge className="bg-purple-100 text-purple-800">
               {analysis.tone_analysis.primary_tone}
             </Badge>
@@ -119,6 +120,12 @@ const DetailedMetrics: React.FC<DetailedMetricsProps> = ({ analysis }) => {
                 </Badge>
               ))}
             </div>
+            {toneAssessment && (
+              <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-md border border-purple-200 dark:border-purple-800">
+                <p className="text-xs font-medium text-purple-800 dark:text-purple-200 mb-1">AI Assessment</p>
+                <p className="text-xs text-purple-700 dark:text-purple-300 leading-relaxed">{toneAssessment}</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
