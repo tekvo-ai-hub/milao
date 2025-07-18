@@ -315,27 +315,105 @@ const Index = () => {
     return <Auth />;
   }
 
-  // Replace handleRecordingComplete to use direct AssemblyAI
+  // Replace handleRecordingComplete to use direct AssemblyAI with improved analysis
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsAnalyzing(true);
     setAnalysisError(null);
     try {
-      const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+      console.log('🎯 Starting fresh transcription analysis...', { duration, audioBlobSize: audioBlob.size });
       
-      // Convert to AnalysisResult format
-      const analysisResult = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
+      let analysis: AnalysisResult;
       
-      setCurrentAnalysis(analysisResult);
-      setCurrentDuration(duration);
+      // Always use live transcription - no cached results
+      if (user?.id) {
+        console.log('🔄 Using VoicePro for real-time analysis...');
+        
+        // Use VoicePro analysis for actual transcription
+        const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
+        console.log('✅ Live VoicePro analysis completed:', assemblyAIResult);
+        
+        // Set transcript for TextAnalytics
+        setTranscriptText(assemblyAIResult.transcript);
+        
+        // Use our improved conversion function for better analysis
+        analysis = convertAssemblyAIToAnalysisResult(assemblyAIResult, duration);
+        
+        // Override with personalized analysis if available
+        if (assemblyAIResult.personalizedAnalysis) {
+          analysis.overall_score = assemblyAIResult.personalizedAnalysis.overallScore || analysis.overall_score;
+          analysis.clarity_score = assemblyAIResult.personalizedAnalysis.clarityScore || analysis.clarity_score;
+          analysis.suggestions = assemblyAIResult.personalizedAnalysis.recommendations || analysis.suggestions;
+          analysis.strengths = assemblyAIResult.personalizedAnalysis.strengths || analysis.strengths;
+        }
+      } else {
+        // Fallback for non-authenticated users - use direct AssemblyAI
+        const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+        analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
+      }
+      
+      setCurrentAnalysis(analysis);
+      setCurrentDuration(Math.floor(duration || 0));
       setCurrentAudioBlob(audioBlob);
-      setTranscriptText(analysisResult.transcript);
+      
+      // Upload audio file to storage if user is authenticated
+      if (user?.id) {
+        const fileName = `${user.id}/${Date.now()}-recording.webm`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('audio-recordings')
+          .upload(fileName, audioBlob, {
+            contentType: 'audio/webm'
+          });
+
+        if (uploadError) {
+          console.error('Error uploading audio:', uploadError);
+          toast({
+            title: "Upload Failed",
+            description: "Could not save audio file.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Get the public URL for the audio file
+        const { data: { publicUrl } } = supabase.storage
+          .from('audio-recordings')
+          .getPublicUrl(fileName);
+        
+        // Save to Supabase database with audio URL
+        const { error } = await supabase
+          .from('speech_recordings')
+          .insert({
+            user_id: user.id,
+            title: `Recording ${new Date().toLocaleDateString()}`,
+            duration: Math.floor(duration || 0),
+            overall_score: analysis.overall_score,
+            clarity_score: analysis.clarity_score,
+            pace: analysis.pace_analysis.words_per_minute,
+            filler_words_count: analysis.filler_words.count,
+            primary_tone: analysis.tone_analysis.primary_tone,
+            analysis_data: analysis as any,
+            audio_url: publicUrl
+          });
+
+        if (error) {
+          console.error('Error saving recording:', error);
+          toast({
+            title: "Save Failed",
+            description: "Recording analyzed but couldn't save to database.",
+            variant: "destructive",
+          });
+        } else {
+          // Refresh recordings from database to stay in sync
+          fetchRecordings();
+        }
+      }
       
       // Auto-open analysis section
       setAnalysisOpen(true);
       
       toast({
         title: "Analysis Complete!",
-        description: `Your speech scored ${analysisResult.overall_score}/100`,
+        description: `Your speech scored ${analysis.overall_score}/100`,
       });
       
     } catch (error) {
