@@ -20,6 +20,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   const [audioLevels, setAudioLevels] = useState<number[]>([]);
   const [currentPlayTime, setCurrentPlayTime] = useState(0);
   const [totalAudioDuration, setTotalAudioDuration] = useState(0);
+  const [error, setError] = useState<string>('');
+  const [isMobile, setIsMobile] = useState(false);
   const MAX_RECORDING_TIME = 300; // 5 minutes in seconds
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -30,6 +32,34 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   const intervalRef = useRef<NodeJS.Timeout>();
   const playProgressRef = useRef<NodeJS.Timeout>();
   const recordingChunksRef = useRef<Blob[]>([]);
+  const currentRecordingTimeRef = useRef<number>(0);
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+      setIsMobile(isMobileDevice);
+      console.log('Mobile device detected:', isMobileDevice);
+    };
+    checkMobile();
+  }, []);
+
+  // Debug duration changes
+  useEffect(() => {
+    console.log('Duration state changed to:', duration, 'Type:', typeof duration);
+  }, [duration]);
+
+  // Safe setDuration function to prevent invalid values
+  const setDurationSafely = (value: number) => {
+    if (isFinite(value) && !isNaN(value) && value >= 0) {
+      console.log('Setting duration safely to:', value);
+      setDuration(value);
+    } else {
+      console.warn('Attempted to set invalid duration:', value);
+      setDuration(0);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -48,73 +78,202 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
     };
   }, []);
 
+  // Check if MediaRecorder is supported
+  const isMediaRecorderSupported = () => {
+    return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') || MediaRecorder.isTypeSupported('audio/mp4') || MediaRecorder.isTypeSupported('audio/wav');
+  };
+
+  // Get supported MIME type for MediaRecorder
+  const getSupportedMimeType = () => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/wav',
+      'audio/ogg;codecs=opus',
+      'audio/ogg'
+    ];
+    
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log('Using MIME type:', type);
+        return type;
+      }
+    }
+    
+    console.warn('No supported MIME type found, using default');
+    return '';
+  };
+
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setError('');
+      console.log('Starting recording...');
+      
+      // Check HTTPS requirement for mobile
+      if (isMobile && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        throw new Error('HTTPS is required for audio recording on mobile devices');
+      }
+      
+      // Check MediaRecorder support
+      if (!isMediaRecorderSupported()) {
+        throw new Error('MediaRecorder is not supported in this browser');
+      }
+
+      // Request microphone permission with mobile-specific constraints
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 1,
+          // Mobile-specific constraints
+          ...(isMobile && {
+            sampleRate: { ideal: 44100, min: 22050 },
+            channelCount: { ideal: 1, min: 1, max: 2 }
+          })
+        }
+      };
+
+      console.log('Requesting microphone access with constraints:', constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Microphone access granted');
+      
       streamRef.current = stream;
       
-      // Set up audio analysis
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      source.connect(analyser);
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
+      // Set up audio analysis (only if supported)
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        source.connect(analyser);
+        analyser.fftSize = 256;
+        analyserRef.current = analyser;
+        console.log('Audio analysis set up successfully');
+      } catch (analysisError) {
+        console.warn('Audio analysis not supported:', analysisError);
+        analyserRef.current = null;
+      }
       
-      const mediaRecorder = new MediaRecorder(stream);
+      const mimeType = getSupportedMimeType();
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
       recordingChunksRef.current = [];
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           recordingChunksRef.current.push(event.data);
+          console.log('Data available, chunk size:', event.data.size);
         }
       };
       
       mediaRecorder.onstop = () => {
-        const blob = new Blob(recordingChunksRef.current, { type: 'audio/wav' });
+        console.log('MediaRecorder stopped, chunks:', recordingChunksRef.current.length);
+        const blob = new Blob(recordingChunksRef.current, { type: mimeType || 'audio/wav' });
         setAudioBlob(blob);
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
-        setDuration(recordingTime);
         
-        // Get audio duration
+        // Use the current recording time for duration
+        const finalTime = currentRecordingTimeRef.current;
+        console.log('Recording stopped. Final recording time from ref:', finalTime);
+        setDurationSafely(finalTime);
+        
+        // Get audio duration from the actual audio file
         const audio = new Audio(url);
         audio.onloadedmetadata = () => {
-          setTotalAudioDuration(audio.duration);
+          console.log('Audio metadata loaded. Duration:', audio.duration, 'Recording time from ref:', finalTime);
+          
+          // Validate the audio duration before using it
+          if (isFinite(audio.duration) && !isNaN(audio.duration) && audio.duration > 0) {
+            setTotalAudioDuration(audio.duration);
+            
+            // Only update duration if the difference is significant and the audio duration is valid
+            if (Math.abs(audio.duration - finalTime) > 1) {
+              const newDuration = Math.floor(audio.duration);
+              console.log('Updating duration to actual audio duration:', newDuration);
+              setDurationSafely(newDuration);
+            }
+          } else {
+            console.warn('Invalid audio duration received:', audio.duration);
+            // Keep the recording time as duration
+            setTotalAudioDuration(finalTime);
+          }
+        };
+        
+        // Handle errors in audio loading
+        audio.onerror = () => {
+          console.error('Error loading audio metadata');
+          setTotalAudioDuration(finalTime);
         };
       };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        setError('Recording error occurred');
+        stopRecording();
+      };
+
+      mediaRecorder.onstart = () => {
+        console.log('MediaRecorder started successfully');
+      };
       
-      mediaRecorder.start(100); // Collect data every 100ms for pause functionality
+      // Start recording with appropriate timeslice for mobile
+      const timeslice = isMobile ? 1000 : 100; // 1 second for mobile, 100ms for desktop
+      mediaRecorder.start(timeslice);
       setIsRecording(true);
       setIsPaused(false);
       setRecordingTime(0);
+      currentRecordingTimeRef.current = 0;
+      console.log('Recording started, timer initialized');
       
       // Start recording timer
       intervalRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          const newTime = prev + 1;
-          if (newTime >= MAX_RECORDING_TIME) {
-            stopRecording();
-          }
-          return newTime;
-        });
+        currentRecordingTimeRef.current += 1;
+        const newTime = currentRecordingTimeRef.current;
+        console.log('Timer update - New time:', newTime, 'Is recording:', isRecording, 'Is paused:', isPaused);
+        
+        setRecordingTime(newTime);
+        
+        if (newTime >= MAX_RECORDING_TIME) {
+          console.log('Max recording time reached, stopping recording');
+          stopRecording();
+        }
       }, 1000);
       
-      // Start audio level monitoring
-      const updateAudioLevels = () => {
-        if (analyserRef.current && isRecording && !isPaused) {
-          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-          analyserRef.current.getByteFrequencyData(dataArray);
-          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setAudioLevels(prev => [...prev.slice(-30), average]);
-        }
-        animationFrameRef.current = requestAnimationFrame(updateAudioLevels);
-      };
-      updateAudioLevels();
+      // Start audio level monitoring (only if analyser is available)
+      if (analyserRef.current) {
+        const updateAudioLevels = () => {
+          if (analyserRef.current && isRecording && !isPaused) {
+            const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+            analyserRef.current.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+            setAudioLevels(prev => [...prev.slice(-30), average]);
+          }
+          animationFrameRef.current = requestAnimationFrame(updateAudioLevels);
+        };
+        updateAudioLevels();
+      }
       
     } catch (error) {
       console.error('Error accessing microphone:', error);
+      let errorMessage = 'Failed to access microphone';
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Microphone permission denied. Please allow microphone access and try again.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No microphone found. Please connect a microphone and try again.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage = 'Audio recording is not supported in this browser.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
+      console.error('Recording error:', errorMessage);
     }
   };
 
@@ -124,7 +283,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
       setIsPaused(true);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = undefined;
       }
+      console.log('Recording paused at time:', currentRecordingTimeRef.current);
     }
   };
 
@@ -135,25 +296,36 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
       
       // Resume timer
       intervalRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          const newTime = prev + 1;
-          if (newTime >= MAX_RECORDING_TIME) {
-            stopRecording();
-          }
-          return newTime;
-        });
+        currentRecordingTimeRef.current += 1;
+        const newTime = currentRecordingTimeRef.current;
+        console.log('Timer update (resumed) - New time:', newTime);
+        
+        setRecordingTime(newTime);
+        
+        if (newTime >= MAX_RECORDING_TIME) {
+          console.log('Max recording time reached, stopping recording');
+          stopRecording();
+        }
       }, 1000);
+      console.log('Recording resumed from time:', currentRecordingTimeRef.current);
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && (isRecording || isPaused)) {
+      // Capture the current recording time before stopping
+      const finalRecordingTime = currentRecordingTimeRef.current;
+      console.log('Stop recording called. Current recording time from ref:', finalRecordingTime);
+      
+      // Clear the interval first to prevent further updates
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = undefined;
+      }
+      
       mediaRecorderRef.current.stop();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
       }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -161,6 +333,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
       setIsRecording(false);
       setIsPaused(false);
       setAudioLevels([]);
+      
+      // Ensure duration is set with the captured time
+      console.log('Setting duration to:', finalRecordingTime);
+      setDurationSafely(finalRecordingTime);
     }
   };
 
@@ -204,12 +380,14 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
     stopAudio();
     setAudioBlob(null);
     setAudioUrl('');
-    setDuration(0);
+    setDurationSafely(0);
     setRecordingTime(0);
+    currentRecordingTimeRef.current = 0;
     setCurrentPlayTime(0);
     setTotalAudioDuration(0);
     setIsPlaying(false);
     setAudioLevels([]);
+    setError(''); // Clear any previous errors
   };
 
   const analyzeRecording = () => {
@@ -219,6 +397,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   };
 
   const formatTime = (seconds: number) => {
+    // Handle invalid values
+    if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) {
+      return '0:00';
+    }
+    
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -228,6 +411,26 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
     <Card className="w-full border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
       <CardContent className="p-8">
         <div className="flex flex-col items-center space-y-8">
+          {/* Error Display */}
+          {error && (
+            <div className="w-full p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="text-destructive text-sm font-medium">{error}</div>
+              <div className="text-destructive/70 text-xs mt-1">
+                {error.includes('permission') && 'Please check your browser settings and allow microphone access.'}
+                {error.includes('not supported') && 'Try using a different browser like Chrome or Safari.'}
+                {error.includes('HTTPS') && 'Please access this app via HTTPS for mobile recording.'}
+              </div>
+              <Button
+                onClick={() => setError('')}
+                variant="outline"
+                size="sm"
+                className="mt-2 text-destructive border-destructive/20 hover:bg-destructive/10"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+
           {/* Modern Recording Visualization */}
           <div className="w-full h-32 bg-gradient-to-r from-muted/50 to-accent/50 rounded-2xl border border-[var(--glass-border)] flex items-center justify-center relative overflow-hidden">
             {isRecording || isPaused ? (
@@ -260,7 +463,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
             ) : (
               <div className="text-center">
                 <div className="text-foreground/70 font-medium mb-2">Ready to Record</div>
-                <div className="text-sm text-muted-foreground">Click the microphone to start</div>
+                <div className="text-sm text-muted-foreground">
+                  {isMobile ? 'Tap the microphone to start' : 'Click the microphone to start'}
+                </div>
               </div>
             )}
           </div>
@@ -309,8 +514,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
                 {!isRecording ? (
                   <Button
                     onClick={startRecording}
+                    onTouchStart={(e) => {
+                      // Prevent double-tap zoom on mobile
+                      e.preventDefault();
+                    }}
                     size="lg"
-                    className="w-20 h-20 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-[var(--shadow-glow)] border-0"
+                    className="w-20 h-20 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-[var(--shadow-glow)] border-0 touch-manipulation"
                     disabled={isAnalyzing}
                   >
                     <Mic className="w-8 h-8" />

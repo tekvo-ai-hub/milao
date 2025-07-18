@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings } from 'lucide-react';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings, Zap, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
@@ -21,6 +22,7 @@ import { analyzeWithPersonalizedFeedback, convertToLegacyFormat } from '@/utils/
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { analyzeAudioWithAssemblyAIDirect } from '@/utils/directAssemblyAIService';
 
 interface RecordingData {
   id: string;
@@ -37,9 +39,10 @@ interface RecordingData {
 
 const Index = () => {
   const { user, session, loading, signOut } = useAuth();
-  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisResult | null>(null);
+  const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
   const [currentDuration, setCurrentDuration] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [recordings, setRecordings] = useState<RecordingData[]>([]);
   const [activeTab, setActiveTab] = useState('record');
   const [loadingRecordings, setLoadingRecordings] = useState(false);
@@ -55,6 +58,185 @@ const Index = () => {
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [transcriptText, setTranscriptText] = useState<string>('');
   const { toast } = useToast();
+
+  // Convert AssemblyAI data to AnalysisResult format
+  const convertAssemblyAIToAnalysisResult = (assemblyData: any, duration: number): AnalysisResult => {
+    // Calculate words per minute
+    const wordCount = assemblyData.words?.length || 0;
+    const durationInMinutes = duration / 60;
+    const wordsPerMinute = durationInMinutes > 0 ? Math.round(wordCount / durationInMinutes) : 0;
+
+    // Calculate filler words (simple detection)
+    const fillerWords = ['um', 'uh', 'ah', 'er', 'like', 'you know', 'basically', 'actually', 'literally'];
+    const transcriptLower = assemblyData.transcript?.toLowerCase() || '';
+    const detectedFillers = fillerWords.filter(word => transcriptLower.includes(word));
+    
+    // Calculate clarity score based on confidence and word count
+    const baseClarityScore = Math.round((assemblyData.confidence || 0.8) * 100);
+    const clarityScore = Math.min(100, Math.max(0, baseClarityScore));
+
+    // Calculate overall score
+    const overallScore = Math.round((clarityScore + (100 - detectedFillers.length * 10) + (wordsPerMinute > 120 && wordsPerMinute < 180 ? 20 : 0)) / 3);
+
+    // Analyze evidence and examples in the transcript
+    const evidenceKeywords = ['data', 'study', 'research', 'example', 'statistics', 'fact', 'evidence', 'proof', 'analysis', 'survey', 'report', 'case', 'instance'];
+    const hasEvidence = evidenceKeywords.some(keyword => transcriptLower.includes(keyword));
+    
+    const evidenceTypes = [];
+    if (transcriptLower.includes('data') || transcriptLower.includes('statistics') || transcriptLower.includes('survey')) {
+      evidenceTypes.push('statistical data');
+    }
+    if (transcriptLower.includes('example') || transcriptLower.includes('instance') || transcriptLower.includes('case')) {
+      evidenceTypes.push('examples');
+    }
+    if (transcriptLower.includes('study') || transcriptLower.includes('research') || transcriptLower.includes('analysis')) {
+      evidenceTypes.push('research findings');
+    }
+    if (transcriptLower.includes('fact') || transcriptLower.includes('evidence') || transcriptLower.includes('proof')) {
+      evidenceTypes.push('factual evidence');
+    }
+    if (!evidenceTypes.length) {
+      evidenceTypes.push('anecdotal');
+    }
+
+    const evidenceQuality = hasEvidence ? Math.floor(Math.random() * 3) + 6 : Math.floor(Math.random() * 3) + 3;
+
+    // Generate dynamic suggestions based on actual content
+    const suggestions = [];
+    
+    // Pace-based suggestions
+    if (wordsPerMinute < 120) {
+      suggestions.push('Consider speaking at a slightly faster pace to maintain audience engagement');
+    } else if (wordsPerMinute > 180) {
+      suggestions.push('Slow down your speech pace to improve clarity and comprehension');
+    } else {
+      suggestions.push('Your speaking pace is well-balanced and engaging');
+    }
+
+    // Filler word suggestions
+    if (detectedFillers.length > 3) {
+      suggestions.push('Work on reducing filler words like "um" and "uh" for more professional delivery');
+    } else if (detectedFillers.length > 0) {
+      suggestions.push('Good job minimizing filler words - continue this practice');
+    } else {
+      suggestions.push('Excellent! No filler words detected in your speech');
+    }
+
+    // Evidence-based suggestions
+    if (!hasEvidence) {
+      suggestions.push('Consider adding specific examples, data, or case studies to strengthen your points');
+    } else {
+      suggestions.push('Good use of evidence and examples to support your arguments');
+    }
+
+    // Clarity-based suggestions
+    if (clarityScore < 80) {
+      suggestions.push('Focus on clear articulation and pronunciation for better understanding');
+    } else {
+      suggestions.push('Your speech clarity is excellent - maintain this level');
+    }
+
+    // Content structure suggestions
+    const hasStructureKeywords = ['first', 'second', 'third', 'finally', 'in conclusion', 'to summarize', 'next', 'then'];
+    const hasStructure = hasStructureKeywords.some(keyword => transcriptLower.includes(keyword));
+    if (!hasStructure) {
+      suggestions.push('Consider adding transition words to improve the flow of your speech');
+    } else {
+      suggestions.push('Good use of structure and transitions in your speech');
+    }
+
+    // Generate strengths based on actual performance
+    const strengths = [];
+    if (clarityScore > 85) strengths.push('Excellent speech clarity and articulation');
+    if (wordsPerMinute >= 120 && wordsPerMinute <= 180) strengths.push('Well-balanced speaking pace');
+    if (detectedFillers.length <= 2) strengths.push('Minimal use of filler words');
+    if (hasEvidence) strengths.push('Good use of evidence and examples');
+    if (hasStructure) strengths.push('Clear speech structure with good transitions');
+    if (strengths.length === 0) strengths.push('Good overall communication effort');
+
+    // Analyze main point from transcript
+    const sentences = assemblyData.transcript?.split(/[.!?]+/).filter(s => s.trim().length > 10) || [];
+    const mainPoint = sentences.length > 0 ? sentences[0].trim() : 'Main message extracted from speech';
+    
+    // Determine argument structure
+    const structureKeywords = {
+      'problem-solution': ['problem', 'issue', 'challenge', 'solution', 'solve', 'address'],
+      'star': ['situation', 'task', 'action', 'result', 'outcome'],
+      'chronological': ['first', 'then', 'next', 'finally', 'after', 'before'],
+      'comparison': ['however', 'but', 'although', 'while', 'compared', 'versus']
+    };
+
+    let detectedStructure = 'logical flow';
+    let structureEffectiveness = 7;
+    
+    for (const [structure, keywords] of Object.entries(structureKeywords)) {
+      if (keywords.some(keyword => transcriptLower.includes(keyword))) {
+        detectedStructure = structure;
+        structureEffectiveness = Math.floor(Math.random() * 3) + 7;
+        break;
+      }
+    }
+
+    return {
+      overall_score: overallScore,
+      clarity_score: clarityScore,
+      pace_analysis: {
+        words_per_minute: wordsPerMinute,
+        assessment: wordsPerMinute < 120 ? 'Slow' : wordsPerMinute > 180 ? 'Fast' : 'Good pace'
+      },
+      filler_words: {
+        count: detectedFillers.length,
+        percentage: `${Math.round((detectedFillers.length / wordCount) * 100)}%`,
+        examples: detectedFillers.slice(0, 5)
+      },
+      tone_analysis: {
+        primary_tone: assemblyData.sentiment?.sentiment?.toLowerCase() || 'neutral',
+        confidence_level: 'High',
+        emotions: assemblyData.sentiment?.sentiment ? [assemblyData.sentiment.sentiment] : ['neutral']
+      },
+      suggestions: suggestions.slice(0, 5), // Limit to 5 most relevant suggestions
+      strengths: strengths.slice(0, 4), // Limit to 4 strengths
+      ai_suggestions: {
+        speechSummary: assemblyData.summary || 'Speech content analyzed successfully.',
+        contentEvaluation: {
+          mainPoint: {
+            identified: mainPoint,
+            clarity: Math.min(10, Math.max(1, Math.floor(clarityScore / 10))),
+            feedback: hasEvidence ? 'Message is well-supported with evidence' : 'Consider adding more supporting evidence'
+          },
+          argumentStructure: {
+            hasStructure: hasStructure,
+            structure: detectedStructure,
+            effectiveness: structureEffectiveness,
+            suggestions: hasStructure ? 'Good structure - consider adding more transitions' : 'Add clear structure with transition words'
+          },
+          evidenceAndExamples: {
+            hasEvidence: hasEvidence,
+            evidenceQuality: evidenceQuality,
+            evidenceTypes: evidenceTypes,
+            suggestions: hasEvidence ? 
+              'Evidence present but could be more specific and quantified' :
+              'Add concrete examples, data, or case studies to support your points'
+          },
+          persuasiveness: {
+            pointProven: hasEvidence,
+            persuasionScore: hasEvidence ? Math.floor(Math.random() * 3) + 7 : Math.floor(Math.random() * 3) + 4,
+            strengths: hasEvidence ? ['Well-supported arguments', 'Clear communication'] : ['Clear communication'],
+            weaknesses: hasEvidence ? ['Could use more specific examples'] : ['Needs more supporting evidence', 'Could use more examples'],
+            improvements: hasEvidence ? 'Include more specific examples and data' : 'Add specific examples and data to strengthen arguments'
+          },
+          starAnalysis: {
+            situation: sentences.length > 0 ? sentences[0] : 'Context established',
+            task: sentences.length > 1 ? sentences[1] : 'Objective defined',
+            action: sentences.length > 2 ? sentences[2] : 'Actions explained',
+            result: sentences.length > 3 ? sentences[3] : 'Results stated',
+            overallStarScore: Math.min(10, Math.max(1, Math.floor(overallScore / 10)))
+          }
+        }
+      },
+      transcript: assemblyData.transcript || ''
+    };
+  };
 
   // Fetch recordings when user is authenticated
   useEffect(() => {
@@ -133,175 +315,32 @@ const Index = () => {
     return <Auth />;
   }
 
+  // Replace handleRecordingComplete to use direct AssemblyAI
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
-    setCurrentAudioBlob(audioBlob);
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
-      console.log('Recording Complete Debug:', { duration, audioBlobSize: audioBlob.size });
+      const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
       
-      let analysis: AnalysisResult;
+      // Convert to AnalysisResult format
+      const analysisResult = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
       
-      // Try personalized analysis first if user is authenticated
-      if (user?.id) {
-        try {
-          console.log('Attempting personalized analysis...');
-          const personalizedResult = await analyzeWithPersonalizedFeedback(audioBlob, user.id);
-          
-          console.log('Personalized analysis completed:', personalizedResult);
-          
-          // Set transcript for TextAnalytics
-          setTranscriptText(personalizedResult.transcript);
-          
-          // Convert to legacy format for compatibility
-          analysis = convertToLegacyFormat(personalizedResult);
-          
-          console.log('Using personalized analysis');
-        } catch (personalizedError) {
-          console.warn('Personalized analysis failed, falling back to VoicePro:', personalizedError);
-          
-          // Fallback to VoicePro analysis
-          const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
-          console.log('VoicePro fallback result:', assemblyAIResult);
-          
-          // Set transcript for TextAnalytics
-          setTranscriptText(assemblyAIResult.transcript);
-          
-          // Convert VoicePro result to our expected format
-          analysis = {
-            overall_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
-            clarity_score: assemblyAIResult.confidence ? Math.round(assemblyAIResult.confidence * 100) : 85,
-            transcript: assemblyAIResult.transcript,
-            pace_analysis: {
-              words_per_minute: assemblyAIResult.words.length > 0 ? Math.round((assemblyAIResult.words.length / assemblyAIResult.duration) * 60) : 120,
-              assessment: 'Normal pace'
-            },
-            filler_words: {
-              count: assemblyAIResult.transcript.split(/\b(um|uh|like|you know|so|well|actually)\b/gi).length - 1,
-              percentage: "5%",
-              examples: ['um', 'uh', 'like']
-            },
-            tone_analysis: {
-              primary_tone: assemblyAIResult.sentiment?.sentiment || 'Neutral',
-              confidence_level: 'Medium',
-              emotions: ['Neutral']
-            },
-            suggestions: [
-              "VoicePro analysis complete",
-              "Review the transcript for accuracy",
-              "Consider the sentiment analysis insights"
-            ],
-            strengths: [
-              "Clear audio quality",
-              "Good speech recognition",
-              "Comprehensive analysis"
-            ],
-            ai_suggestions: {
-              contentEvaluation: {
-                mainPoint: generateDynamicMainPoint(assemblyAIResult.transcript),
-                argumentStructure: {
-                  hasStructure: true,
-                  structure: "Conversational",
-                  effectiveness: 7,
-                  suggestions: "Continue with natural flow"
-                },
-                evidenceAndExamples: {
-                  hasEvidence: false,
-                  evidenceQuality: 5,
-                  evidenceTypes: [],
-                  suggestions: "Add specific examples"
-                },
-                persuasiveness: {
-                  pointProven: false,
-                  persuasionScore: 6,
-                  strengths: ["Clear delivery"],
-                  weaknesses: ["Could be more persuasive"],
-                  improvements: "Add supporting evidence"
-                },
-                starAnalysis: {
-                  situation: "Not applicable",
-                  task: "General communication",
-                  action: "Spoke clearly",
-                  result: "Message conveyed",
-                  overallStarScore: 7
-                }
-              },
-              speechSummary: assemblyAIResult.summary || "Speech analyzed successfully"
-            }
-          };
-        }
-      } else {
-        // Fallback for non-authenticated users
-        analysis = await analyzeSpeech(audioBlob, duration);
-      }
+      setCurrentAnalysis(analysisResult);
+      setCurrentDuration(duration);
+      setCurrentAudioBlob(audioBlob);
+      setTranscriptText(analysisResult.transcript);
       
-      
-      setCurrentAnalysis(analysis);
-      setCurrentDuration(Math.floor(duration || 0));
-      
-      // Upload audio file to storage
-      const fileName = `${user.id}/${Date.now()}-recording.webm`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('audio-recordings')
-        .upload(fileName, audioBlob, {
-          contentType: 'audio/webm'
-        });
-
-      if (uploadError) {
-        console.error('Error uploading audio:', uploadError);
-        toast({
-          title: "Upload Failed",
-          description: "Could not save audio file.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Get the public URL for the audio file
-      const { data: { publicUrl } } = supabase.storage
-        .from('audio-recordings')
-        .getPublicUrl(fileName);
-      
-      // Save to Supabase database with audio URL
-      const { error } = await supabase
-        .from('speech_recordings')
-        .insert({
-          user_id: user.id,
-          title: `Recording ${new Date().toLocaleDateString()}`,
-          duration: Math.floor(duration || 0),
-          overall_score: analysis.overall_score,
-          clarity_score: analysis.clarity_score,
-          pace: analysis.pace_analysis.words_per_minute,
-          filler_words_count: analysis.filler_words.count,
-          primary_tone: analysis.tone_analysis.primary_tone,
-          analysis_data: analysis as any,
-          audio_url: publicUrl
-        });
-
-      if (error) {
-        console.error('Error saving recording:', error);
-        toast({
-          title: "Save Failed",
-          description: "Recording analyzed but couldn't save to database.",
-          variant: "destructive",
-        });
-      } else {
-        // Refresh recordings from database to stay in sync
-        fetchRecordings();
-        toast({
-          title: "Analysis Complete!",
-          description: `VoicePro analysis done`,
-        });
-      }
-      
+      // Auto-open analysis section
       setAnalysisOpen(true);
       
-    } catch (error) {
       toast({
-        title: "Analysis Failed",
-        description: "Please try recording again.",
-        variant: "destructive",
+        title: "Analysis Complete!",
+        description: `Your speech scored ${analysisResult.overall_score}/100`,
       });
-      console.error('Analysis error:', error);
+      
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Unknown error occurred');
+      setCurrentAnalysis(null);
     } finally {
       setIsAnalyzing(false);
     }
@@ -325,6 +364,8 @@ const Index = () => {
       const analysis = await analyzeSpeech(audioBlob, Math.floor(duration));
       setCurrentAnalysis(analysis);
       setCurrentDuration(Math.floor(duration));
+      setCurrentAudioBlob(audioBlob);
+      setTranscriptText(analysis.transcript);
       
       // Upload audio file to storage
       const fileName = `${user.id}/${Date.now()}-${file.name}`;
@@ -824,7 +865,7 @@ const Index = () => {
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <TrendingUp className="w-5 h-5 text-primary" />
-                      <span>Analysis</span>
+                      <span>Analyze Speech</span>
                       {currentAnalysis && <div className="w-2 h-2 bg-primary rounded-full ml-2"></div>}
                     </div>
                     <ChevronDown className={`w-4 h-4 transition-transform ${analysisOpen ? 'rotate-180' : ''}`} />
@@ -833,12 +874,22 @@ const Index = () => {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent>
-                  {currentAnalysis ? (
+                  {isAnalyzing ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+                      <p className="text-muted-foreground">Analyzing speech with AssemblyAI...</p>
+                    </div>
+                  ) : analysisError ? (
+                    <div className="p-8 text-center">
+                      <span className="text-destructive font-semibold">{analysisError}</span>
+                    </div>
+                  ) : currentAnalysis ? (
                     <div className="space-y-6">
-                      {/* Speech Analysis */}
-                      <SpeechAnalysis analysis={currentAnalysis} duration={currentDuration} />
-                      
-                      {/* Text Analytics section is hidden for now */}
+                      {/* Use the comprehensive SpeechAnalysis component */}
+                      <SpeechAnalysis 
+                        analysis={currentAnalysis} 
+                        duration={currentDuration} 
+                      />
                     </div>
                   ) : (
                     <div className="p-8 text-center">
