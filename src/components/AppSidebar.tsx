@@ -29,12 +29,6 @@ export function AppSidebar({ onHistoryClick, onProgressClick, onAiClick, history
 
   const menuItems = [
     {
-      title: 'Local AI',
-      icon: Brain,
-      onClick: onAiClick,
-      isActive: aiOpen,
-    },
-    {
       title: 'History',
       icon: History,
       onClick: onHistoryClick,

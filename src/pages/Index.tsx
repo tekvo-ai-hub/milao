@@ -756,12 +756,6 @@ const Index = () => {
           </header>
 
           <div className="container mx-auto px-4 py-6 max-w-4xl">
-            {/* Simple info message */}
-            <div className="text-center mb-6">
-              <p className="text-muted-foreground text-sm">
-                Enable Local AI for enhanced analysis and better privacy
-              </p>
-            </div>
 
             {/* Collapsible Sections */}
             <div className="space-y-4">
