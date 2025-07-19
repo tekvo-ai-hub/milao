@@ -8,10 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { X, ArrowLeft } from 'lucide-react';
+import { X, ArrowLeft, ChevronDown, User, Target, AlertTriangle, GraduationCap, Palette, Shield, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface UserPreferences {
@@ -47,6 +47,14 @@ const UserPreferences: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newChallenge, setNewChallenge] = useState('');
+  
+  // Collapsible states
+  const [personalOpen, setPersonalOpen] = useState(true);
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const [challengesOpen, setChallengesOpen] = useState(false);
+  const [learningOpen, setLearningOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -129,206 +137,264 @@ const UserPreferences: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-accent/20 to-background">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading preferences...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-4xl">
-      <div className="mb-6 flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Home
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">User Preferences</h1>
-          <p className="text-muted-foreground">Customize your speech analysis experience</p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
+      {/* Mobile Header */}
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-[var(--glass-border)]">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-xl font-bold">Preferences</h1>
+              <p className="text-sm text-muted-foreground">Customize your experience</p>
+            </div>
+            <Button onClick={savePreferences} disabled={saving} size="sm">
+              <Save className="w-4 h-4 mr-1" />
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="personal">Personal</TabsTrigger>
-          <TabsTrigger value="goals">Goals</TabsTrigger>
-          <TabsTrigger value="challenges">Challenges</TabsTrigger>
-          <TabsTrigger value="learning">Learning</TabsTrigger>
-          <TabsTrigger value="style">Style</TabsTrigger>
-          <TabsTrigger value="consent">Consent</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="personal">
-          <Card>
-            <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
-              <CardDescription>Tell us about yourself</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+      {/* Content */}
+      <div className="container mx-auto px-4 py-6 max-w-2xl space-y-4">
+        
+        {/* Personal Information */}
+        <Collapsible open={personalOpen} onOpenChange={setPersonalOpen}>
+          <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-5 h-5 text-primary" />
+                    <span>Personal Information</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${personalOpen ? 'rotate-180' : ''}`} />
+                </CardTitle>
+                <CardDescription>Tell us about yourself</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="display_name">Display Name</Label>
                   <Input
                     id="display_name"
                     value={preferences.display_name || ''}
                     onChange={(e) => updatePreference('display_name', e.target.value)}
+                    placeholder="Your preferred name"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="age">Age</Label>
+                    <Input
+                      id="age"
+                      type="number"
+                      value={preferences.age || ''}
+                      onChange={(e) => updatePreference('age', parseInt(e.target.value) || null)}
+                      placeholder="25"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="native_language">Native Language</Label>
+                    <Input
+                      id="native_language"
+                      value={preferences.native_language || ''}
+                      onChange={(e) => updatePreference('native_language', e.target.value)}
+                      placeholder="English"
+                    />
+                  </div>
+                </div>
                 <div>
-                  <Label htmlFor="age">Age</Label>
+                  <Label htmlFor="location">Location</Label>
                   <Input
-                    id="age"
-                    type="number"
-                    value={preferences.age || ''}
-                    onChange={(e) => updatePreference('age', parseInt(e.target.value) || null)}
+                    id="location"
+                    value={preferences.location || ''}
+                    onChange={(e) => updatePreference('location', e.target.value)}
+                    placeholder="Your location"
                   />
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  value={preferences.location || ''}
-                  onChange={(e) => updatePreference('location', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="native_language">Native Language</Label>
-                <Input
-                  id="native_language"
-                  value={preferences.native_language || ''}
-                  onChange={(e) => updatePreference('native_language', e.target.value)}
-                />
-              </div>
-            </CardContent>
+              </CardContent>
+            </CollapsibleContent>
           </Card>
-        </TabsContent>
+        </Collapsible>
 
-        <TabsContent value="goals">
-          <Card>
-            <CardHeader>
-              <CardTitle>Goals & Context</CardTitle>
-              <CardDescription>What are you trying to achieve?</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="speaking_goal">Speaking Goal</Label>
-                <Textarea
-                  id="speaking_goal"
-                  value={preferences.speaking_goal || ''}
-                  onChange={(e) => updatePreference('speaking_goal', e.target.value)}
-                  placeholder="e.g., Improve presentation skills, reduce accent, etc."
-                />
-              </div>
-              <div>
-                <Label htmlFor="target_audience">Target Audience</Label>
-                <Input
-                  id="target_audience"
-                  value={preferences.target_audience || ''}
-                  onChange={(e) => updatePreference('target_audience', e.target.value)}
-                  placeholder="e.g., Business colleagues, students, etc."
-                />
-              </div>
-              <div>
-                <Label htmlFor="scenario">Typical Scenario</Label>
-                <Textarea
-                  id="scenario"
-                  value={preferences.scenario || ''}
-                  onChange={(e) => updatePreference('scenario', e.target.value)}
-                  placeholder="e.g., Business meetings, public speaking, conversations"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="challenges">
-          <Card>
-            <CardHeader>
-              <CardTitle>Speaking Challenges</CardTitle>
-              <CardDescription>Areas you'd like to improve</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Accent Challenges</Label>
-                <div className="flex gap-2 mb-2">
+        {/* Goals & Context */}
+        <Collapsible open={goalsOpen} onOpenChange={setGoalsOpen}>
+          <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Target className="w-5 h-5 text-primary" />
+                    <span>Goals & Context</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${goalsOpen ? 'rotate-180' : ''}`} />
+                </CardTitle>
+                <CardDescription>What are you trying to achieve?</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="speaking_goal">Speaking Goal</Label>
+                  <Textarea
+                    id="speaking_goal"
+                    value={preferences.speaking_goal || ''}
+                    onChange={(e) => updatePreference('speaking_goal', e.target.value)}
+                    placeholder="e.g., Improve presentation skills, reduce accent, etc."
+                    className="min-h-[80px]"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="target_audience">Target Audience</Label>
                   <Input
-                    value={newChallenge}
-                    onChange={(e) => setNewChallenge(e.target.value)}
-                    placeholder="Add a challenge"
-                    onKeyPress={(e) => e.key === 'Enter' && addChallenge()}
+                    id="target_audience"
+                    value={preferences.target_audience || ''}
+                    onChange={(e) => updatePreference('target_audience', e.target.value)}
+                    placeholder="e.g., Business colleagues, students, etc."
                   />
-                  <Button onClick={addChallenge}>Add</Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(preferences.accent_challenges || []).map((challenge, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                      {challenge}
-                      <X
-                        className="h-3 w-3 cursor-pointer"
-                        onClick={() => removeChallenge(index)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="fluency_level">Fluency Level</Label>
-                  <Select value={preferences.fluency_level || ''} onValueChange={(value) => updatePreference('fluency_level', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                      <SelectItem value="native">Native</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div>
-                  <Label htmlFor="vocabulary_level">Vocabulary Level</Label>
-                  <Select value={preferences.vocabulary_level || ''} onValueChange={(value) => updatePreference('vocabulary_level', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                      <SelectItem value="professional">Professional</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="scenario">Typical Scenario</Label>
+                  <Textarea
+                    id="scenario"
+                    value={preferences.scenario || ''}
+                    onChange={(e) => updatePreference('scenario', e.target.value)}
+                    placeholder="e.g., Business meetings, public speaking, conversations"
+                    className="min-h-[80px]"
+                  />
                 </div>
-                <div>
-                  <Label htmlFor="confidence_level">Confidence Level</Label>
-                  <Select value={preferences.confidence_level || ''} onValueChange={(value) => updatePreference('confidence_level', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
+              </CardContent>
+            </CollapsibleContent>
           </Card>
-        </TabsContent>
+        </Collapsible>
 
-        <TabsContent value="learning">
-          <Card>
-            <CardHeader>
-              <CardTitle>Learning Preferences</CardTitle>
-              <CardDescription>How do you prefer to learn?</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+        {/* Speaking Challenges */}
+        <Collapsible open={challengesOpen} onOpenChange={setChallengesOpen}>
+          <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="w-5 h-5 text-primary" />
+                    <span>Speaking Challenges</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${challengesOpen ? 'rotate-180' : ''}`} />
+                </CardTitle>
+                <CardDescription>Areas you'd like to improve</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Accent Challenges</Label>
+                  <div className="flex gap-2 mb-2">
+                    <Input
+                      value={newChallenge}
+                      onChange={(e) => setNewChallenge(e.target.value)}
+                      placeholder="Add a challenge"
+                      onKeyPress={(e) => e.key === 'Enter' && addChallenge()}
+                    />
+                    <Button onClick={addChallenge} size="sm">Add</Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(preferences.accent_challenges || []).map((challenge, index) => (
+                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        {challenge}
+                        <X
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => removeChallenge(index)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="fluency_level">Fluency Level</Label>
+                    <Select value={preferences.fluency_level || ''} onValueChange={(value) => updatePreference('fluency_level', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="native">Native</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="vocabulary_level">Vocabulary Level</Label>
+                    <Select value={preferences.vocabulary_level || ''} onValueChange={(value) => updatePreference('vocabulary_level', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Basic</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="confidence_level">Confidence Level</Label>
+                    <Select value={preferences.confidence_level || ''} onValueChange={(value) => updatePreference('confidence_level', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Learning Preferences */}
+        <Collapsible open={learningOpen} onOpenChange={setLearningOpen}>
+          <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <GraduationCap className="w-5 h-5 text-primary" />
+                    <span>Learning Preferences</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${learningOpen ? 'rotate-180' : ''}`} />
+                </CardTitle>
+                <CardDescription>How do you prefer to learn?</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="learning_style">Learning Style</Label>
                   <Select value={preferences.learning_style || ''} onValueChange={(value) => updatePreference('learning_style', value)}>
@@ -356,8 +422,6 @@ const UserPreferences: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="practice_frequency">Practice Frequency</Label>
                   <Select value={preferences.practice_frequency || ''} onValueChange={(value) => updatePreference('practice_frequency', value)}>
@@ -385,91 +449,140 @@ const UserPreferences: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            </CardContent>
+              </CardContent>
+            </CollapsibleContent>
           </Card>
-        </TabsContent>
+        </Collapsible>
 
-        <TabsContent value="style">
-          <Card>
-            <CardHeader>
-              <CardTitle>Accent & Style</CardTitle>
-              <CardDescription>Your speaking style preferences</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="tone_preference">Tone Preference</Label>
-                <Select value={preferences.tone_preference || ''} onValueChange={(value) => updatePreference('tone_preference', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="formal">Formal</SelectItem>
-                    <SelectItem value="casual">Casual</SelectItem>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="conversational">Conversational</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="role_models">Role Models or Speaking Examples</Label>
-                <Textarea
-                  id="role_models"
-                  value={preferences.role_models || ''}
-                  onChange={(e) => updatePreference('role_models', e.target.value)}
-                  placeholder="e.g., TED speakers, news anchors, specific people you admire"
-                />
-              </div>
-            </CardContent>
+        {/* Accent & Style */}
+        <Collapsible open={styleOpen} onOpenChange={setStyleOpen}>
+          <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Palette className="w-5 h-5 text-primary" />
+                    <span>Accent & Style</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${styleOpen ? 'rotate-180' : ''}`} />
+                </CardTitle>
+                <CardDescription>Your speaking style preferences</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="tone_preference">Tone Preference</Label>
+                  <Select value={preferences.tone_preference || ''} onValueChange={(value) => updatePreference('tone_preference', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="formal">Formal</SelectItem>
+                      <SelectItem value="casual">Casual</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="conversational">Conversational</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="role_models">Role Models or Speaking Examples</Label>
+                  <Textarea
+                    id="role_models"
+                    value={preferences.role_models || ''}
+                    onChange={(e) => updatePreference('role_models', e.target.value)}
+                    placeholder="e.g., TED speakers, news anchors, specific people you admire"
+                    className="min-h-[80px]"
+                  />
+                </div>
+              </CardContent>
+            </CollapsibleContent>
           </Card>
-        </TabsContent>
+        </Collapsible>
 
-        <TabsContent value="consent">
-          <Card>
-            <CardHeader>
-              <CardTitle>Consent & Tracking</CardTitle>
-              <CardDescription>Your privacy and notification preferences</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="recording_consent"
-                  checked={preferences.recording_consent || false}
-                  onCheckedChange={(checked) => updatePreference('recording_consent', checked)}
-                />
-                <Label htmlFor="recording_consent">
-                  I consent to recording my voice for analysis
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="reminders_enabled"
-                  checked={preferences.reminders_enabled || false}
-                  onCheckedChange={(checked) => updatePreference('reminders_enabled', checked)}
-                />
-                <Label htmlFor="reminders_enabled">
-                  Enable practice reminders
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="gamification_enabled"
-                  checked={preferences.gamification_enabled || false}
-                  onCheckedChange={(checked) => updatePreference('gamification_enabled', checked)}
-                />
-                <Label htmlFor="gamification_enabled">
-                  Enable gamification features (streaks, achievements, etc.)
-                </Label>
-              </div>
-            </CardContent>
+        {/* Consent & Privacy */}
+        <Collapsible open={consentOpen} onOpenChange={setConsentOpen}>
+          <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <span>Privacy & Notifications</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${consentOpen ? 'rotate-180' : ''}`} />
+                </CardTitle>
+                <CardDescription>Your privacy and notification preferences</CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-6">
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="recording_consent"
+                    checked={preferences.recording_consent || false}
+                    onCheckedChange={(checked) => updatePreference('recording_consent', checked)}
+                    className="mt-1"
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="recording_consent" className="text-sm font-medium">
+                      Recording Consent
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      I consent to recording my voice for analysis purposes
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="reminders_enabled"
+                    checked={preferences.reminders_enabled || false}
+                    onCheckedChange={(checked) => updatePreference('reminders_enabled', checked)}
+                    className="mt-1"
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="reminders_enabled" className="text-sm font-medium">
+                      Practice Reminders
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Get notifications to remind you to practice speaking
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="gamification_enabled"
+                    checked={preferences.gamification_enabled || false}
+                    onCheckedChange={(checked) => updatePreference('gamification_enabled', checked)}
+                    className="mt-1"
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="gamification_enabled" className="text-sm font-medium">
+                      Gamification Features
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Enable streaks, achievements, and progress tracking
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </Collapsible>
 
-      <div className="flex justify-end space-x-2 mt-6">
-        <Button onClick={savePreferences} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Preferences'}
-        </Button>
+        {/* Bottom Save Button */}
+        <div className="pt-4 pb-8">
+          <Button 
+            onClick={savePreferences} 
+            disabled={saving}
+            className="w-full h-12 text-base"
+          >
+            <Save className="w-5 h-5 mr-2" />
+            {saving ? 'Saving Preferences...' : 'Save All Preferences'}
+          </Button>
+        </div>
       </div>
     </div>
   );
