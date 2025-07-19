@@ -65,15 +65,14 @@ const AdminDashboard: React.FC = () => {
   const [userNotes, setUserNotes] = useState('');
 
   useEffect(() => {
-    if (!adminLoading && !isAdmin) {
-      navigate('/');
-      return;
+    if (!adminLoading) {
+      if (isAdmin) {
+        loadAdminData();
+      } else {
+        setLoading(false);
+      }
     }
-    
-    if (isAdmin) {
-      loadAdminData();
-    }
-  }, [isAdmin, adminLoading, navigate]);
+  }, [isAdmin, adminLoading]);
 
   const loadAdminData = async () => {
     setLoading(true);
