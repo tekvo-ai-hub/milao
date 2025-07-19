@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { X, ArrowLeft, ChevronDown, User, Target, AlertTriangle, GraduationCap, Palette, Shield, Save } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { X, ArrowLeft, ChevronDown, User, Target, AlertTriangle, GraduationCap, Palette, Shield, Save, CheckCircle } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface UserPreferences {
   id?: string;
@@ -43,6 +43,8 @@ const UserPreferences: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isMandatory = searchParams.get('mandatory') === 'true';
   const [preferences, setPreferences] = useState<UserPreferences>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -107,6 +109,11 @@ const UserPreferences: React.FC = () => {
         title: "Success",
         description: "Preferences saved successfully",
       });
+
+      // If this was a mandatory setup, redirect to main page
+      if (isMandatory) {
+        navigate('/');
+      }
     } catch (error) {
       console.error('Error saving preferences:', error);
       toast({
@@ -153,22 +160,35 @@ const UserPreferences: React.FC = () => {
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-[var(--glass-border)]">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
+            {!isMandatory && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            )}
             <div className="flex-1">
-              <h1 className="text-xl font-bold">Preferences</h1>
-              <p className="text-sm text-muted-foreground">Customize your experience</p>
+              <h1 className="text-xl font-bold">
+                {isMandatory ? 'Welcome! Set up your preferences' : 'Preferences'}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {isMandatory 
+                  ? 'Please complete your profile to get started' 
+                  : 'Customize your experience'
+                }
+              </p>
             </div>
             <Button onClick={savePreferences} disabled={saving} size="sm">
-              <Save className="w-4 h-4 mr-1" />
-              {saving ? 'Saving...' : 'Save'}
+              {isMandatory ? (
+                <CheckCircle className="w-4 h-4 mr-1" />
+              ) : (
+                <Save className="w-4 h-4 mr-1" />
+              )}
+              {saving ? 'Saving...' : isMandatory ? 'Complete Setup' : 'Save'}
             </Button>
           </div>
         </div>
@@ -579,8 +599,17 @@ const UserPreferences: React.FC = () => {
             disabled={saving}
             className="w-full h-12 text-base"
           >
-            <Save className="w-5 h-5 mr-2" />
-            {saving ? 'Saving Preferences...' : 'Save All Preferences'}
+            {isMandatory ? (
+              <CheckCircle className="w-5 h-5 mr-2" />
+            ) : (
+              <Save className="w-5 h-5 mr-2" />
+            )}
+            {saving 
+              ? 'Saving Preferences...' 
+              : isMandatory 
+                ? 'Complete Setup & Get Started' 
+                : 'Save All Preferences'
+            }
           </Button>
         </div>
       </div>

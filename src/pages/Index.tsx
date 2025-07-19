@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { analyzeAudioWithAssemblyAIDirect } from '@/utils/directAssemblyAIService';
+import { useNavigate } from 'react-router-dom';
 
 interface RecordingData {
   id: string;
@@ -39,6 +40,7 @@ interface RecordingData {
 
 const Index = () => {
   const { user, session, loading, signOut } = useAuth();
+  const navigate = useNavigate();
   const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
   const [currentDuration, setCurrentDuration] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -57,6 +59,7 @@ const Index = () => {
   const [tipsOpen, setTipsOpen] = useState(false);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [transcriptText, setTranscriptText] = useState<string>('');
+  const [checkingPreferences, setCheckingPreferences] = useState(false);
   const { toast } = useToast();
 
   // Convert AssemblyAI data to AnalysisResult format
@@ -238,14 +241,49 @@ const Index = () => {
     };
   };
 
+  // Check for user preferences and redirect to preferences if missing
+  useEffect(() => {
+    if (user && !checkingPreferences) {
+      checkUserPreferences();
+    }
+  }, [user]);
+
+  const checkUserPreferences = async () => {
+    if (!user) return;
+    
+    setCheckingPreferences(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error checking preferences:', error);
+        return;
+      }
+
+      // If no preferences found, redirect to preferences page
+      if (!data) {
+        navigate('/preferences?mandatory=true');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking preferences:', error);
+    } finally {
+      setCheckingPreferences(false);
+    }
+  };
+
   // Fetch recordings when user is authenticated
   useEffect(() => {
-    if (user) {
+    if (user && !checkingPreferences) {
       fetchRecordings();
     } else {
       setRecordings([]);
     }
-  }, [user]);
+  }, [user, checkingPreferences]);
 
   const fetchRecordings = async () => {
     if (!user) return;
@@ -295,8 +333,8 @@ const Index = () => {
     }
   };
 
-  // Show loading state while checking auth
-  if (loading) {
+  // Show loading state while checking auth or preferences
+  if (loading || checkingPreferences) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center">
         <div className="text-center">
@@ -304,7 +342,7 @@ const Index = () => {
             <Mic className="w-8 h-8 text-primary-foreground" />
           </div>
           <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{checkingPreferences ? 'Checking preferences...' : 'Loading...'}</p>
         </div>
       </div>
     );
