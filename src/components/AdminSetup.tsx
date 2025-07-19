@@ -81,7 +81,7 @@ const AdminSetup: React.FC = () => {
         // Refresh the page to update admin status
         setTimeout(() => {
           window.location.reload();
-        }, 1000);
+        }, 2000);
       } else {
         toast({
           title: "Unexpected Response",
