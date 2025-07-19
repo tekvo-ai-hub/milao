@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Users, Activity, Settings, Shield, Clock, Mic, TrendingUp, Eye, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import AdminSetup from '@/components/AdminSetup';
 
 interface UserStats {
   id: string;
@@ -334,10 +335,13 @@ const AdminDashboard: React.FC = () => {
           <Shield className="w-16 h-16 text-destructive mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
           <p className="text-muted-foreground mb-4">You don't have admin privileges.</p>
-          <Button onClick={() => navigate('/')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
+          <div className="flex flex-col gap-4 items-center">
+            <AdminSetup />
+            <Button onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+          </div>
         </div>
       </div>
     );
