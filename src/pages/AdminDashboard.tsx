@@ -1,0 +1,546 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useAdmin } from '@/hooks/useAdmin';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { ArrowLeft, Users, Activity, Settings, Shield, Clock, Mic, TrendingUp, Eye, BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+
+interface UserStats {
+  id: string;
+  email: string;
+  display_name?: string;
+  created_at: string;
+  last_login?: string;
+  login_count: number;
+  recording_count: number;
+  total_recording_duration: number;
+  recording_enabled: boolean;
+  account_status: string;
+  notes?: string;
+}
+
+interface ActivityLog {
+  id: string;
+  user_id: string;
+  activity_type: string;
+  activity_data?: any;
+  created_at: string;
+  user_email?: string;
+}
+
+interface DashboardStats {
+  total_users: number;
+  active_users_today: number;
+  total_recordings: number;
+  total_recording_duration: number;
+}
+
+const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdmin();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<UserStats[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    total_users: 0,
+    active_users_today: 0,
+    total_recordings: 0,
+    total_recording_duration: 0
+  });
+  const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
+  const [userNotes, setUserNotes] = useState('');
+
+  useEffect(() => {
+    if (!adminLoading && !isAdmin) {
+      navigate('/');
+      return;
+    }
+    
+    if (isAdmin) {
+      loadAdminData();
+    }
+  }, [isAdmin, adminLoading, navigate]);
+
+  const loadAdminData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadUserStats(),
+        loadActivityLogs(),
+        loadDashboardStats()
+      ]);
+    } catch (error) {
+      console.error('Error loading admin data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load admin data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUserStats = async () => {
+    const { data, error } = await supabase.rpc('get_user_stats');
+    
+    if (error) {
+      console.error('Error loading user stats:', error);
+      // Fallback query if RPC doesn't work
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          email,
+          display_name,
+          created_at,
+          user_settings!inner(recording_enabled, account_status, notes)
+        `);
+      
+      if (fallbackError) throw fallbackError;
+      
+      const userStats: UserStats[] = fallbackData?.map(profile => ({
+        id: profile.id,
+        email: profile.email || '',
+        display_name: profile.display_name,
+        created_at: profile.created_at,
+        login_count: 0,
+        recording_count: 0,
+        total_recording_duration: 0,
+        recording_enabled: profile.user_settings?.recording_enabled || true,
+        account_status: profile.user_settings?.account_status || 'active',
+        notes: profile.user_settings?.notes
+      })) || [];
+      
+      setUsers(userStats);
+      return;
+    }
+    
+    setUsers(data || []);
+  };
+
+  const loadActivityLogs = async () => {
+    const { data, error } = await supabase
+      .from('user_activity_logs')
+      .select(`
+        id,
+        user_id,
+        activity_type,
+        activity_data,
+        created_at,
+        profiles!inner(email)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+
+    const logs: ActivityLog[] = data?.map(log => ({
+      ...log,
+      user_email: log.profiles?.email
+    })) || [];
+
+    setActivityLogs(logs);
+  };
+
+  const loadDashboardStats = async () => {
+    const { data, error } = await supabase.rpc('get_dashboard_stats');
+    
+    if (error) {
+      console.error('Error loading dashboard stats:', error);
+      // Fallback manual calculation
+      const { count: userCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      
+      const { count: recordingCount } = await supabase
+        .from('speech_recordings')
+        .select('*', { count: 'exact', head: true });
+      
+      setDashboardStats({
+        total_users: userCount || 0,
+        active_users_today: 0,
+        total_recordings: recordingCount || 0,
+        total_recording_duration: 0
+      });
+      return;
+    }
+    
+    setDashboardStats(data || {
+      total_users: 0,
+      active_users_today: 0,
+      total_recordings: 0,
+      total_recording_duration: 0
+    });
+  };
+
+  const toggleUserRecording = async (userId: string, enabled: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: userId,
+          recording_enabled: enabled,
+          updated_by: user?.id,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, recording_enabled: enabled } : u
+      ));
+
+      toast({
+        title: "Success",
+        description: `Recording ${enabled ? 'enabled' : 'disabled'} for user`,
+      });
+    } catch (error) {
+      console.error('Error updating user recording status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user recording status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateUserNotes = async (userId: string, notes: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: userId,
+          notes: notes,
+          updated_by: user?.id,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, notes } : u
+      ));
+
+      toast({
+        title: "Success",
+        description: "User notes updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating user notes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user notes",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'login': return <Shield className="w-4 h-4" />;
+      case 'recording_created': return <Mic className="w-4 h-4" />;
+      case 'preferences_updated': return <Settings className="w-4 h-4" />;
+      default: return <Activity className="w-4 h-4" />;
+    }
+  };
+
+  if (adminLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Shield className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">You don't have admin privileges.</p>
+          <Button onClick={() => navigate('/')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
+      {/* Header */}
+      <div className="border-b border-[var(--glass-border)] bg-background/80 backdrop-blur-md">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to App
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+              <p className="text-muted-foreground">Manage users and monitor system activity</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats.total_users}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Today</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats.active_users_today}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Recordings</CardTitle>
+              <Mic className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats.total_recordings}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Duration</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatDuration(dashboardStats.total_recording_duration)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <Tabs defaultValue="users" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="users">User Management</TabsTrigger>
+            <TabsTrigger value="activity">Activity Logs</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Management</CardTitle>
+                <CardDescription>
+                  Manage user accounts, permissions, and recording access
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Recordings</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Recording Access</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((userStat) => (
+                      <TableRow key={userStat.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {userStat.display_name || 'No name'}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {userStat.email}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(userStat.created_at), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell>{userStat.recording_count}</TableCell>
+                        <TableCell>
+                          {formatDuration(userStat.total_recording_duration)}
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={userStat.recording_enabled}
+                            onCheckedChange={(checked) =>
+                              toggleUserRecording(userStat.id, checked)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              userStat.account_status === 'active'
+                                ? 'default'
+                                : userStat.account_status === 'suspended'
+                                ? 'destructive'
+                                : 'secondary'
+                            }
+                          >
+                            {userStat.account_status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUser(userStat);
+                                  setUserNotes(userStat.notes || '');
+                                }}
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>User Details</DialogTitle>
+                                <DialogDescription>
+                                  View and manage user information
+                                </DialogDescription>
+                              </DialogHeader>
+                              {selectedUser && (
+                                <div className="space-y-4">
+                                  <div>
+                                    <h4 className="font-medium mb-2">Basic Info</h4>
+                                    <p><strong>Email:</strong> {selectedUser.email}</p>
+                                    <p><strong>Display Name:</strong> {selectedUser.display_name || 'Not set'}</p>
+                                    <p><strong>Joined:</strong> {format(new Date(selectedUser.created_at), 'PPP')}</p>
+                                  </div>
+                                  
+                                  <div>
+                                    <h4 className="font-medium mb-2">Activity Stats</h4>
+                                    <p><strong>Login Count:</strong> {selectedUser.login_count}</p>
+                                    <p><strong>Recordings:</strong> {selectedUser.recording_count}</p>
+                                    <p><strong>Total Duration:</strong> {formatDuration(selectedUser.total_recording_duration)}</p>
+                                  </div>
+                                  
+                                  <div>
+                                    <h4 className="font-medium mb-2">Admin Notes</h4>
+                                    <Textarea
+                                      value={userNotes}
+                                      onChange={(e) => setUserNotes(e.target.value)}
+                                      placeholder="Add notes about this user..."
+                                      className="min-h-[100px]"
+                                    />
+                                    <Button
+                                      onClick={() => updateUserNotes(selectedUser.id, userNotes)}
+                                      className="mt-2"
+                                    >
+                                      Update Notes
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="activity">
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity Logs</CardTitle>
+                <CardDescription>
+                  Recent user activities and system events
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Activity</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activityLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getActivityIcon(log.activity_type)}
+                            <span className="capitalize">
+                              {log.activity_type.replace('_', ' ')}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{log.user_email}</TableCell>
+                        <TableCell>
+                          {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell>
+                          {log.activity_data && (
+                            <pre className="text-xs">
+                              {JSON.stringify(log.activity_data, null, 2)}
+                            </pre>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;
