@@ -95,96 +95,148 @@ const AdminDashboard: React.FC = () => {
   };
 
   const loadUserStats = async () => {
-    const { data, error } = await supabase.rpc('get_user_stats');
-    
-    if (error) {
-      console.error('Error loading user stats:', error);
-      // Fallback query if RPC doesn't work
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          email,
-          display_name,
-          created_at,
-          user_settings!inner(recording_enabled, account_status, notes)
-        `);
+    try {
+      const { data, error } = await supabase
+        .rpc('get_user_stats');
       
-      if (fallbackError) throw fallbackError;
+      if (error) {
+        console.error('Error loading user stats:', error);
+        // Fallback query 
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select(`
+            id,
+            email,
+            full_name,
+            created_at
+          `);
+        
+        if (profilesError) throw profilesError;
+        
+        const userStats: UserStats[] = profiles?.map(profile => ({
+          id: profile.id,
+          email: profile.email || '',
+          display_name: profile.full_name,
+          created_at: profile.created_at,
+          login_count: 0,
+          recording_count: 0,
+          total_recording_duration: 0,
+          recording_enabled: true,
+          account_status: 'active',
+          notes: undefined
+        })) || [];
+        
+        setUsers(userStats);
+        return;
+      }
       
-      const userStats: UserStats[] = fallbackData?.map(profile => ({
-        id: profile.id,
-        email: profile.email || '',
-        display_name: profile.display_name,
-        created_at: profile.created_at,
-        login_count: 0,
-        recording_count: 0,
-        total_recording_duration: 0,
-        recording_enabled: profile.user_settings?.recording_enabled || true,
-        account_status: profile.user_settings?.account_status || 'active',
-        notes: profile.user_settings?.notes
+      // Transform the data to match UserStats interface
+      const userStats: UserStats[] = data?.map((row: any) => ({
+        id: row.id,
+        email: row.email || '',
+        display_name: row.display_name,
+        created_at: row.created_at,
+        last_login: row.last_login,
+        login_count: Number(row.login_count),
+        recording_count: Number(row.recording_count),
+        total_recording_duration: Number(row.total_recording_duration),
+        recording_enabled: row.recording_enabled,
+        account_status: row.account_status,
+        notes: row.notes
       })) || [];
       
       setUsers(userStats);
-      return;
+    } catch (error) {
+      console.error('Error in loadUserStats:', error);
+      setUsers([]);
     }
-    
-    setUsers(data || []);
   };
 
   const loadActivityLogs = async () => {
-    const { data, error } = await supabase
-      .from('user_activity_logs')
-      .select(`
-        id,
-        user_id,
-        activity_type,
-        activity_data,
-        created_at,
-        profiles!inner(email)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100);
+    try {
+      const { data, error } = await supabase
+        .from('user_activity_logs')
+        .select(`
+          id,
+          user_id,
+          activity_type,
+          activity_data,
+          created_at
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const logs: ActivityLog[] = data?.map(log => ({
-      ...log,
-      user_email: log.profiles?.email
-    })) || [];
+      // Get user emails separately
+      const userIds = [...new Set(data?.map(log => log.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds);
 
-    setActivityLogs(logs);
+      const emailMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
+
+      const logs: ActivityLog[] = data?.map(log => ({
+        ...log,
+        user_email: emailMap.get(log.user_id) || 'Unknown'
+      })) || [];
+
+      setActivityLogs(logs);
+    } catch (error) {
+      console.error('Error loading activity logs:', error);
+      setActivityLogs([]);
+    }
   };
 
   const loadDashboardStats = async () => {
-    const { data, error } = await supabase.rpc('get_dashboard_stats');
-    
-    if (error) {
-      console.error('Error loading dashboard stats:', error);
-      // Fallback manual calculation
-      const { count: userCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+    try {
+      const { data, error } = await supabase
+        .rpc('get_dashboard_stats');
       
-      const { count: recordingCount } = await supabase
-        .from('speech_recordings')
-        .select('*', { count: 'exact', head: true });
+      if (error) {
+        console.error('Error loading dashboard stats:', error);
+        // Fallback manual calculation
+        const { count: userCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+        
+        const { count: recordingCount } = await supabase
+          .from('speech_recordings')
+          .select('*', { count: 'exact', head: true });
+        
+        setDashboardStats({
+          total_users: userCount || 0,
+          active_users_today: 0,
+          total_recordings: recordingCount || 0,
+          total_recording_duration: 0
+        });
+        return;
+      }
+      
+      // Transform the data to match DashboardStats interface
+      const stats = data?.[0] || {
+        total_users: 0,
+        active_users_today: 0,
+        total_recordings: 0,
+        total_recording_duration: 0
+      };
       
       setDashboardStats({
-        total_users: userCount || 0,
+        total_users: Number(stats.total_users),
+        active_users_today: Number(stats.active_users_today),
+        total_recordings: Number(stats.total_recordings),
+        total_recording_duration: Number(stats.total_recording_duration)
+      });
+    } catch (error) {
+      console.error('Error in loadDashboardStats:', error);
+      setDashboardStats({
+        total_users: 0,
         active_users_today: 0,
-        total_recordings: recordingCount || 0,
+        total_recordings: 0,
         total_recording_duration: 0
       });
-      return;
     }
-    
-    setDashboardStats(data || {
-      total_users: 0,
-      active_users_today: 0,
-      total_recordings: 0,
-      total_recording_duration: 0
-    });
   };
 
   const toggleUserRecording = async (userId: string, enabled: boolean) => {

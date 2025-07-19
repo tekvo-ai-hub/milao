@@ -259,6 +259,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_dashboard_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          total_users: number
+          active_users_today: number
+          total_recordings: number
+          total_recording_duration: number
+        }[]
+      }
+      get_user_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          display_name: string
+          created_at: string
+          last_login: string
+          login_count: number
+          recording_count: number
+          total_recording_duration: number
+          recording_enabled: boolean
+          account_status: string
+          notes: string
+        }[]
+      }
       has_role: {
         Args: {
           _user_id: string

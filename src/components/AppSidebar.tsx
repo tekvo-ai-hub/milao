@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, TrendingUp, LogOut, User, Brain, Settings } from 'lucide-react';
+import { History, TrendingUp, LogOut, User, Settings, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -12,6 +12,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdmin } from '@/hooks/useAdmin';
 
 interface AppSidebarProps {
   onHistoryClick: () => void;
@@ -25,6 +26,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onHistoryClick, onProgressClick, onAiClick, historyOpen, progressOpen, aiOpen }: AppSidebarProps) {
   const { state } = useSidebar();
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const collapsed = state === 'collapsed';
 
   const menuItems = [
@@ -87,6 +89,22 @@ export function AppSidebar({ onHistoryClick, onProgressClick, onAiClick, history
               </div>
             )}
           </div>
+
+          {/* Admin Dashboard Link - Only show to admins */}
+          {isAdmin && (
+            <Link to="/admin">
+              <SidebarMenuButton
+                className={`
+                  flex items-center space-x-3 w-full p-3 rounded-xl transition-all duration-200
+                  hover:bg-accent/50 text-muted-foreground hover:text-foreground mb-2
+                  ${collapsed ? 'justify-center' : ''}
+                `}
+              >
+                <Shield className="w-4 h-4 flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Admin Dashboard</span>}
+              </SidebarMenuButton>
+            </Link>
+          )}
 
           {/* Preferences button */}
           <Link to="/preferences">

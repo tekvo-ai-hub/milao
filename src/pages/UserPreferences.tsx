@@ -105,6 +105,20 @@ const UserPreferences: React.FC = () => {
 
       if (error) throw error;
 
+      // Log preferences update activity
+      try {
+        await supabase.rpc('log_user_activity', {
+          p_user_id: user.id,
+          p_activity_type: 'preferences_updated',
+          p_activity_data: { 
+            mandatory: isMandatory,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log preferences activity:', logError);
+      }
+
       toast({
         title: "Success",
         description: "Preferences saved successfully",

@@ -16,6 +16,7 @@ import Auth from '@/components/Auth';
 import LLMStatus from '@/components/LLMStatus';
 import TextAnalytics from '@/components/TextAnalytics';
 import { AppSidebar } from '@/components/AppSidebar';
+import AdminSetup from '@/components/AdminSetup';
 import { analyzeSpeech, AnalysisResult, generateDynamicMainPoint } from '@/utils/speechAnalysisAPI';
 import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
 import { analyzeWithPersonalizedFeedback, convertToLegacyFormat } from '@/utils/personalizedSpeechAnalysis';
