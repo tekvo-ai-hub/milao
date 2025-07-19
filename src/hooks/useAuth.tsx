@@ -17,9 +17,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Clear any stale session data first
+    const clearStaleSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // If there's an error getting session, clear localStorage
+        if (error || !session) {
+          localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
+          setSession(null);
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
+        localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
+        setSession(null);
+        setUser(null);
+      }
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
+        
+        // Handle token refresh errors
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.log('Token refresh failed, clearing session');
+          localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -40,11 +71,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    // Clear stale session data and THEN check for existing session
+    clearStaleSession().then(() => {
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('Session error:', error);
+          localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
+          setSession(null);
+          setUser(null);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
+        setLoading(false);
+      });
     });
 
     return () => subscription.unsubscribe();
