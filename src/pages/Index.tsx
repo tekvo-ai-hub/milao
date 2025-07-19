@@ -262,19 +262,20 @@ const Index = () => {
 
       if (error) {
         console.error('Error checking preferences:', error);
+        setCheckingPreferences(false);
         return;
       }
 
       // If no preferences found, redirect to preferences page
       if (!data) {
         navigate('/preferences?mandatory=true');
+        setCheckingPreferences(false);
         return;
       }
     } catch (error) {
       console.error('Error checking preferences:', error);
-    } finally {
-      setCheckingPreferences(false);
     }
+    setCheckingPreferences(false);
   };
 
   // Fetch recordings when user is authenticated
