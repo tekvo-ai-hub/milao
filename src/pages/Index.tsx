@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings, Zap, Loader2 } from 'lucide-react';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings, Zap, Loader2, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
@@ -787,6 +787,15 @@ const Index = () => {
                     {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                   </span>
                 </div>
+                <Link 
+                  to="/USER_GUIDE.md" 
+                  target="_blank"
+                  className="p-2 hover:bg-accent/50 rounded-lg transition-colors flex items-center space-x-1 text-muted-foreground hover:text-foreground"
+                  title="Help & User Guide"
+                >
+                  <HelpCircle className="w-5 h-5" />
+                  <span className="text-sm hidden sm:inline">Help</span>
+                </Link>
                 <SidebarTrigger className="p-2 hover:bg-accent/50 rounded-lg transition-colors">
                   <Menu className="w-5 h-5" />
                 </SidebarTrigger>
