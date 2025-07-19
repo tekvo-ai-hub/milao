@@ -242,7 +242,7 @@ const Index = () => {
     };
   };
 
-  // Check for user preferences and redirect to preferences if missing
+  // Check for user preferences (but don't redirect automatically)
   useEffect(() => {
     if (user && !checkingPreferences) {
       checkUserPreferences();
@@ -266,11 +266,10 @@ const Index = () => {
         return;
       }
 
-      // If no preferences found, redirect to preferences page
+      // Store whether preferences exist but don't redirect automatically
+      // Users can access the app without setting preferences first
       if (!data) {
-        navigate('/preferences?mandatory=true');
-        setCheckingPreferences(false);
-        return;
+        console.log('No preferences found - user can set them later');
       }
     } catch (error) {
       console.error('Error checking preferences:', error);
