@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -20,6 +21,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { action, user_id, email } = await req.json();
+    console.log('Admin operation request:', { action, email });
 
     if (action === 'make_first_admin') {
       // Check if there are any admin users
@@ -29,10 +31,12 @@ serve(async (req) => {
         .eq('role', 'admin');
 
       if (adminCheckError) {
+        console.error('Error checking for existing admins:', adminCheckError);
         throw new Error(`Error checking for existing admins: ${adminCheckError.message}`);
       }
 
       if (existingAdmins && existingAdmins.length > 0) {
+        console.log('Admin already exists, blocking request');
         return new Response(
           JSON.stringify({ 
             error: 'Admin user already exists. Cannot create multiple admins through this method.' 
@@ -44,20 +48,22 @@ serve(async (req) => {
         );
       }
 
-      // Find the user by email
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (profileError) {
-        throw new Error(`Error finding user profile: ${profileError.message}`);
+      // First try to find user in auth.users table using admin client
+      console.log('Looking for user with email:', email);
+      
+      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+      
+      if (authError) {
+        console.error('Error fetching auth users:', authError);
+        throw new Error(`Error fetching users: ${authError.message}`);
       }
 
-      if (!profiles) {
+      const authUser = authUsers.users.find(user => user.email === email);
+      
+      if (!authUser) {
+        console.log('User not found in auth.users');
         return new Response(
-          JSON.stringify({ error: 'User not found with that email address' }),
+          JSON.stringify({ error: 'User not found with that email address. Make sure the user has signed up first.' }),
           { 
             status: 404, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -65,24 +71,35 @@ serve(async (req) => {
         );
       }
 
+      console.log('Found user:', authUser.id);
+
       // Make the user an admin
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
-          user_id: profiles.id,
+          user_id: authUser.id,
           role: 'admin'
         });
 
       if (roleError) {
+        console.error('Error creating admin role:', roleError);
         throw new Error(`Error creating admin role: ${roleError.message}`);
       }
 
+      console.log('Admin role created successfully');
+
       // Log the admin creation
-      await supabase.rpc('log_user_activity', {
-        p_user_id: profiles.id,
-        p_activity_type: 'admin_role_granted',
-        p_activity_data: { granted_by: 'system', timestamp: new Date().toISOString() }
-      });
+      try {
+        await supabase.rpc('log_user_activity', {
+          p_user_id: authUser.id,
+          p_activity_type: 'admin_role_granted',
+          p_activity_data: { granted_by: 'system', timestamp: new Date().toISOString() }
+        });
+        console.log('Activity logged');
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+        // Don't fail the whole operation for logging issues
+      }
 
       return new Response(
         JSON.stringify({ 
