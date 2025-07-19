@@ -65,7 +65,7 @@ Please improve the following speech transcript focusing on: ${improvements.join(
 
 Original Speech Summary: ${summary}
 
-Original Transcript: ${transcript}
+Original Raw Transcript: ${transcript}
 
 Instructions:
 - Maintain the core message and meaning

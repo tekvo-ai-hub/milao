@@ -782,33 +782,7 @@ const Index = () => {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-6">
-                  {/* Recording Method Toggle */}
-                  <div className="flex space-x-3 mb-6">
-                    <Button
-                      variant={recordingMethod === 'record' ? 'default' : 'outline'}
-                      onClick={() => setRecordingMethod('record')}
-                      className={`flex items-center space-x-2 h-12 px-6 rounded-xl transition-all ${
-                        recordingMethod === 'record' 
-                          ? 'bg-gradient-to-r from-primary to-primary/80 shadow-[var(--shadow-glow)]' 
-                          : 'border-[var(--glass-border)] bg-card/30 hover:bg-card/50'
-                      }`}
-                    >
-                      <Mic className="w-5 h-5" />
-                      <span className="font-medium">Live Recording</span>
-                    </Button>
-                    <Button
-                      variant={recordingMethod === 'upload' ? 'default' : 'outline'}
-                      onClick={() => setRecordingMethod('upload')}
-                      className={`flex items-center space-x-2 h-12 px-6 rounded-xl transition-all ${
-                        recordingMethod === 'upload' 
-                          ? 'bg-gradient-to-r from-primary to-primary/80 shadow-[var(--shadow-glow)]' 
-                          : 'border-[var(--glass-border)] bg-card/30 hover:bg-card/50'
-                      }`}
-                    >
-                      <Upload className="w-5 h-5" />
-                      <span className="font-medium">Upload File</span>
-                    </Button>
-                  </div>
+                  {/* Hide upload option for now */}
                   
                   {/* Collapsible Tips */}
                   <Collapsible open={tipsOpen} onOpenChange={setTipsOpen}>
@@ -867,18 +841,11 @@ const Index = () => {
                     </CollapsibleContent>
                   </Collapsible>
 
-                  {/* Recording Interface */}
-                  {recordingMethod === 'record' ? (
-                    <AudioRecorder
-                      onRecordingComplete={handleRecordingComplete}
-                      isAnalyzing={isAnalyzing}
-                    />
-                  ) : (
-                    <AudioUpload
-                      onFileSelect={handleFileUpload}
-                      isProcessing={isAnalyzing}
-                    />
-                  )}
+          {/* Recording Interface */}
+          <AudioRecorder
+            onRecordingComplete={handleRecordingComplete}
+            isAnalyzing={isAnalyzing}
+          />
                 </CardContent>
               </CollapsibleContent>
             </Card>
@@ -968,6 +935,23 @@ const Index = () => {
                         analysis={currentAnalysis} 
                         duration={currentDuration} 
                       />
+                      {/* New Recording Button */}
+                      <div className="mt-6 pt-4 border-t">
+                        <Button 
+                          onClick={() => {
+                            setCurrentAnalysis(null);
+                            setCurrentAudioBlob(null);
+                            setTranscriptText('');
+                            setAnalysisOpen(false);
+                            setRecordOpen(true);
+                          }}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start New Recording
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <div className="p-8 text-center">
