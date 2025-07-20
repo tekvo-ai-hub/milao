@@ -101,12 +101,17 @@ async function submitTranscription(uploadUrl: string): Promise<string> {
   return id;
 }
 
-// Poll for transcription completion
+// Poll for transcription completion with better timing and logging
 async function pollTranscription(transcriptId: string): Promise<any> {
-  const maxAttempts = 60;
+  const maxAttempts = 30; // Reduced from 60
   let attempts = 0;
+  let delay = 2000; // Start with 2 seconds
+
+  console.log(`🔄 Starting to poll transcription ${transcriptId}...`);
 
   while (attempts < maxAttempts) {
+    console.log(`🔄 Polling attempt ${attempts + 1}/${maxAttempts} (${delay}ms delay)...`);
+    
     const response = await fetch(`${ASSEMBLYAI_BASE_URL}/transcript/${transcriptId}`, {
       headers: {
         'authorization': ASSEMBLYAI_API_KEY!,
@@ -120,49 +125,35 @@ async function pollTranscription(transcriptId: string): Promise<any> {
     const result = await response.json();
     
     if (result.status === 'completed') {
+      console.log(`✅ Transcription completed in ${attempts + 1} attempts`);
       return result;
     } else if (result.status === 'error') {
       throw new Error(`Transcription failed: ${result.error}`);
+    } else if (result.status === 'processing') {
+      console.log(`⏳ Still processing... (${result.audio_duration || 'unknown'} seconds)`);
     }
 
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Adaptive delay: increase delay gradually but cap at 10 seconds
+    await new Promise(resolve => setTimeout(resolve, delay));
+    delay = Math.min(delay * 1.2, 10000); // Increase by 20% but max 10s
     attempts++;
   }
 
-  throw new Error('Transcription timed out');
+  throw new Error(`Transcription timed out after ${maxAttempts} attempts (${Math.round((maxAttempts * 5000) / 1000)}s)`);
 }
 
-// Generate personalized analysis using local server
+// Generate personalized analysis using AssemblyAI data only
 async function generatePersonalizedAnalysis(transcript: string, assemblyData: any, preferences: any): Promise<any> {
   try {
-    console.log('Connecting to local server for analysis...');
+    console.log('Generating personalized analysis from AssemblyAI data...');
     
-    // First, analyze the text using the local server's text analysis
-    const textAnalysisResponse = await fetch('http://localhost:3001/analyze/text', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text: transcript
-      })
-    });
-
-    let textAnalysisData = null;
-    if (textAnalysisResponse.ok) {
-      textAnalysisData = await textAnalysisResponse.json();
-      console.log('Local server text analysis result:', textAnalysisData);
-    } else {
-      console.warn('Local server text analysis failed, using fallback');
-    }
-
-    // Generate a structured analysis based on local server results and AssemblyAI data
-    const analysis = generateStructuredAnalysis(transcript, assemblyData, preferences, textAnalysisData);
+    // Generate a structured analysis based on AssemblyAI data only
+    const analysis = generateStructuredAnalysis(transcript, assemblyData, preferences, null);
     
     return analysis;
   } catch (error) {
-    console.error('Error connecting to local server:', error);
-    // Fallback to a basic analysis if local server fails
+    console.error('Error generating personalized analysis:', error);
+    // Fallback to a basic analysis if anything fails
     return generateFallbackAnalysis(transcript, assemblyData, preferences);
   }
 }
@@ -440,9 +431,9 @@ serve(async (req) => {
     }
     
     console.log('AssemblyAI transcription completed. Text length:', assemblyResult.text.length);
-    console.log('Generating personalized analysis with local server...');
+    console.log('Generating personalized analysis from AssemblyAI data...');
     
-    // Generate personalized analysis with local server
+    // Generate personalized analysis from AssemblyAI data
     const personalizedAnalysis = await generatePersonalizedAnalysis(
       assemblyResult.text,
       assemblyResult,

@@ -17,77 +17,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Clear any stale session data first
-    const clearStaleSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        // If there's an error getting session, clear localStorage
-        if (error || !session) {
-          localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
-          setSession(null);
-          setUser(null);
-        }
-      } catch (err) {
-        console.error('Error checking session:', err);
-        localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
-        setSession(null);
-        setUser(null);
-      }
-    };
+    console.log('🔍 useAuth: Starting initialization...');
+    
+    // Add timeout protection
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ useAuth: Initialization timed out after 5 seconds - forcing completion');
+      setLoading(false);
+    }, 5000);
 
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
+      (event, session) => {
+        console.log('🔍 useAuth: Auth state change:', event, session?.user?.email);
         
-        // Handle token refresh errors
-        if (event === 'TOKEN_REFRESHED' && !session) {
-          console.log('Token refresh failed, clearing session');
-          localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
-          setSession(null);
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // Log user login activity
-        if (event === 'SIGNED_IN' && session?.user) {
-          try {
-            await supabase.rpc('log_user_activity', {
-              p_user_id: session.user.id,
-              p_activity_type: 'login',
-              p_activity_data: { event, timestamp: new Date().toISOString() }
-            });
-          } catch (error) {
-            console.error('Failed to log login activity:', error);
-          }
-        }
-        
         setLoading(false);
+        clearTimeout(timeoutId);
       }
     );
 
-    // Clear stale session data and THEN check for existing session
-    clearStaleSession().then(() => {
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
-        if (error) {
-          console.error('Session error:', error);
-          localStorage.removeItem('sb-hflfnvemuqilsvanyyqc-auth-token');
-          setSession(null);
-          setUser(null);
-        } else {
-          setSession(session);
-          setUser(session?.user ?? null);
-        }
-        setLoading(false);
-      });
+    // Get current session immediately
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('❌ useAuth: Session error:', error);
+        setSession(null);
+        setUser(null);
+      } else {
+        console.log('🔍 useAuth: Current session result:', { 
+          hasSession: !!session, 
+          userEmail: session?.user?.email 
+        });
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
+      setLoading(false);
+      clearTimeout(timeoutId);
+    }).catch(error => {
+      console.error('❌ useAuth: Exception during session check:', error);
+      setLoading(false);
+      clearTimeout(timeoutId);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

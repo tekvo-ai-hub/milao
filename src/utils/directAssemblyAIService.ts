@@ -132,16 +132,21 @@ async function submitTranscription(uploadUrl: string): Promise<string> {
   return id;
 }
 
-// Poll for transcription completion
+// Poll for transcription completion with better timing
 async function pollTranscription(transcriptId: string): Promise<any> {
   if (!ASSEMBLYAI_API_KEY) {
     throw new Error('AssemblyAI API key not configured');
   }
 
-  const maxAttempts = 60; // 5 minutes max
+  const maxAttempts = 30; // Reduced from 60
   let attempts = 0;
+  let delay = 2000; // Start with 2 seconds
+
+  console.log(`🔄 Starting to poll transcription ${transcriptId}...`);
 
   while (attempts < maxAttempts) {
+    console.log(`🔄 Polling attempt ${attempts + 1}/${maxAttempts} (${delay}ms delay)...`);
+    
     const response = await fetch(`${ASSEMBLYAI_BASE_URL}/transcript/${transcriptId}`, {
       headers: {
         'authorization': ASSEMBLYAI_API_KEY,
@@ -155,17 +160,21 @@ async function pollTranscription(transcriptId: string): Promise<any> {
     const result = await response.json();
     
     if (result.status === 'completed') {
+      console.log(`✅ Transcription completed in ${attempts + 1} attempts`);
       return result;
     } else if (result.status === 'error') {
       throw new Error(`Transcription failed: ${result.error}`);
+    } else if (result.status === 'processing') {
+      console.log(`⏳ Still processing... (${result.audio_duration || 'unknown'} seconds)`);
     }
 
-    // Wait 5 seconds before next poll
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Adaptive delay: increase delay gradually but cap at 10 seconds
+    await new Promise(resolve => setTimeout(resolve, delay));
+    delay = Math.min(delay * 1.2, 10000); // Increase by 20% but max 10s
     attempts++;
   }
 
-  throw new Error('Transcription timed out');
+  throw new Error(`Transcription timed out after ${maxAttempts} attempts`);
 }
 
 export const analyzeAudioWithAssemblyAIDirect = async (audioBlob: Blob): Promise<AssemblyAIAnalysis> => {
@@ -176,34 +185,51 @@ export const analyzeAudioWithAssemblyAIDirect = async (audioBlob: Blob): Promise
       throw new Error('AssemblyAI API key not configured. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
     }
 
-    // Convert blob to base64 in chunks to prevent stack overflow
-    const arrayBuffer = await audioBlob.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
+    console.log('🔄 Converting audio blob to binary...');
+    console.log('Audio blob info:', {
+      size: audioBlob.size,
+      type: audioBlob.type
+    });
+
+    // Convert audio to a supported format if needed
+    let processedBlob = audioBlob;
     
-    // Process in chunks to avoid "Maximum call stack size exceeded"
-    let binaryString = ''
-    const chunkSize = 8192
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize)
-      binaryString += String.fromCharCode(...chunk)
+    // AssemblyAI supports: mp3, mp4, m4a, wav, flac, aac, ogg, webm, wma
+    const supportedTypes = ['audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/webm', 'audio/wma'];
+    
+    if (!supportedTypes.includes(audioBlob.type)) {
+      console.log('⚠️ Audio type not directly supported, converting to WAV...');
+      
+      // Convert to WAV using Web Audio API
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Convert to WAV format
+      const wavBlob = await convertToWav(audioBuffer);
+      processedBlob = wavBlob;
+      console.log('✅ Audio converted to WAV format');
+    } else {
+      console.log('✅ Audio format already supported by AssemblyAI, no conversion needed');
     }
+
+    // Use FileReader for more reliable conversion
+    const arrayBuffer = await processedBlob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
     
-    const base64Audio = btoa(binaryString)
+    console.log('✅ Audio converted to binary, size:', uint8Array.length);
     
-    // Process audio in chunks
-    const binaryAudio = processBase64Chunks(base64Audio);
-    
-    // Upload audio to AssemblyAI
-    const uploadUrl = await uploadAudio(binaryAudio);
-    console.log('Audio uploaded successfully');
+    // Upload audio directly as binary (no base64 conversion needed)
+    const uploadUrl = await uploadAudio(uint8Array);
+    console.log('✅ Audio uploaded successfully');
     
     // Submit transcription request
     const transcriptId = await submitTranscription(uploadUrl);
-    console.log('Transcription submitted:', transcriptId);
+    console.log('✅ Transcription submitted:', transcriptId);
     
-    // Poll for completion
+    // Poll for completion with better timing
     const result = await pollTranscription(transcriptId);
-    console.log('Transcription completed');
+    console.log('✅ Transcription completed');
 
     // Extract key insights
     const analysis: AssemblyAIAnalysis = {
@@ -232,4 +258,46 @@ export const analyzeAudioWithAssemblyAIDirect = async (audioBlob: Blob): Promise
     console.error('Direct AssemblyAI analysis error:', error)
     throw error
   }
+}
+
+// Helper function to convert AudioBuffer to WAV format
+async function convertToWav(audioBuffer: AudioBuffer): Promise<Blob> {
+  const length = audioBuffer.length;
+  const numberOfChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const arrayBuffer = new ArrayBuffer(44 + length * numberOfChannels * 2);
+  const view = new DataView(arrayBuffer);
+  
+  // WAV header
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + length * numberOfChannels * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numberOfChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numberOfChannels * 2, true);
+  view.setUint16(32, numberOfChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, length * numberOfChannels * 2, true);
+  
+  // Convert audio data
+  let offset = 44;
+  for (let i = 0; i < length; i++) {
+    for (let channel = 0; channel < numberOfChannels; channel++) {
+      const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
 } 

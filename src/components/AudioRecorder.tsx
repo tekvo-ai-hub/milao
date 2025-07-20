@@ -83,15 +83,19 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
     return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') || MediaRecorder.isTypeSupported('audio/mp4') || MediaRecorder.isTypeSupported('audio/wav');
   };
 
-  // Get supported MIME type for MediaRecorder
+  // Get supported MIME type for MediaRecorder (optimized for AssemblyAI)
   const getSupportedMimeType = () => {
+    // AssemblyAI supports: mp3, mp4, m4a, wav, flac, aac, ogg, webm, wma
+    // Prioritize formats that don't need conversion
     const types = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/mp4',
-      'audio/wav',
-      'audio/ogg;codecs=opus',
-      'audio/ogg'
+      'audio/wav',                    // Direct support, no conversion needed
+      'audio/mp3',                    // Direct support
+      'audio/mp4',                    // Direct support
+      'audio/m4a',                    // Direct support
+      'audio/webm;codecs=opus',       // Needs conversion
+      'audio/webm',                   // Needs conversion
+      'audio/ogg;codecs=opus',        // Needs conversion
+      'audio/ogg'                     // Needs conversion
     ];
     
     for (const type of types) {
@@ -145,11 +149,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
       // Set up audio analysis (only if supported)
       try {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const source = audioContext.createMediaStreamSource(stream);
-        const analyser = audioContext.createAnalyser();
-        source.connect(analyser);
-        analyser.fftSize = 256;
-        analyserRef.current = analyser;
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      source.connect(analyser);
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
         console.log('Audio analysis set up successfully');
       } catch (analysisError) {
         console.warn('Audio analysis not supported:', analysisError);
@@ -187,7 +191,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
           
           // Validate the audio duration before using it
           if (isFinite(audio.duration) && !isNaN(audio.duration) && audio.duration > 0) {
-            setTotalAudioDuration(audio.duration);
+          setTotalAudioDuration(audio.duration);
             
             // Only update duration if the difference is significant and the audio duration is valid
             if (Math.abs(audio.duration - finalTime) > 1) {
@@ -236,24 +240,24 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
         
         setRecordingTime(newTime);
         
-        if (newTime >= MAX_RECORDING_TIME) {
+          if (newTime >= MAX_RECORDING_TIME) {
           console.log('Max recording time reached, stopping recording');
-          stopRecording();
-        }
+            stopRecording();
+          }
       }, 1000);
       
       // Start audio level monitoring (only if analyser is available)
       if (analyserRef.current) {
-        const updateAudioLevels = () => {
-          if (analyserRef.current && isRecording && !isPaused) {
-            const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-            analyserRef.current.getByteFrequencyData(dataArray);
-            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-            setAudioLevels(prev => [...prev.slice(-30), average]);
-          }
-          animationFrameRef.current = requestAnimationFrame(updateAudioLevels);
-        };
-        updateAudioLevels();
+      const updateAudioLevels = () => {
+        if (analyserRef.current && isRecording && !isPaused) {
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          setAudioLevels(prev => [...prev.slice(-30), average]);
+        }
+        animationFrameRef.current = requestAnimationFrame(updateAudioLevels);
+      };
+      updateAudioLevels();
       }
       
     } catch (error) {
@@ -302,10 +306,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
         
         setRecordingTime(newTime);
         
-        if (newTime >= MAX_RECORDING_TIME) {
+          if (newTime >= MAX_RECORDING_TIME) {
           console.log('Max recording time reached, stopping recording');
-          stopRecording();
-        }
+            stopRecording();
+          }
       }, 1000);
       console.log('Recording resumed from time:', currentRecordingTimeRef.current);
     }

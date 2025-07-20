@@ -44,40 +44,51 @@ export const analyzeAudioWithAssemblyAI = async (audioBlob: Blob, userId?: strin
   console.log('🎯 Starting AssemblyAI analysis...')
   
   try {
-    // Convert blob to base64 in chunks to prevent stack overflow
-    const arrayBuffer = await audioBlob.arrayBuffer()
-    const uint8Array = new Uint8Array(arrayBuffer)
-    
-    // Process in chunks to avoid "Maximum call stack size exceeded"
-    let binaryString = ''
-    const chunkSize = 8192
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize)
-      binaryString += String.fromCharCode(...chunk)
-    }
-    
-    const base64Audio = btoa(binaryString)
+    // Use FileReader for efficient base64 conversion
+    console.log('🔄 Converting audio to base64...')
+    const base64Audio = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
+        const base64 = result.split(',')[1]
+        console.log('✅ Base64 conversion completed')
+        resolve(base64)
+      }
+      reader.onerror = () => reject(new Error('Failed to convert audio to base64'))
+      reader.readAsDataURL(audioBlob)
+    })
 
-    const { data, error } = await supabase.functions.invoke('analyze-speech-with-preferences', {
+    console.log('🔄 Calling Supabase function...')
+    
+    // Add timeout protection for Supabase function call
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Supabase function timeout after 60 seconds')), 60000);
+    });
+    
+    const functionPromise = supabase.functions.invoke('analyze-speech-with-preferences', {
       body: { 
         audio: base64Audio,
         userId: userId
       }
-    })
+    });
+    
+    const { data, error } = await Promise.race([functionPromise, timeoutPromise]) as any;
 
     if (error) {
-      console.error('AssemblyAI API error:', error)
+      console.error('❌ AssemblyAI API error:', error)
       throw new Error(`AssemblyAI analysis failed: ${error.message}`)
     }
 
     if (!data?.transcript) {
+      console.error('❌ No transcript received from AssemblyAI')
       throw new Error('No transcript received from AssemblyAI')
     }
 
-    console.log('✅ AssemblyAI analysis completed')
+    console.log('✅ AssemblyAI analysis completed successfully')
     return data as AssemblyAIAnalysis
   } catch (error) {
-    console.error('AssemblyAI analysis error:', error)
+    console.error('❌ AssemblyAI analysis error:', error)
     throw error
   }
 }

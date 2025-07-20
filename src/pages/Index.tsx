@@ -61,7 +61,55 @@ const Index = () => {
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [transcriptText, setTranscriptText] = useState<string>('');
   const [checkingPreferences, setCheckingPreferences] = useState(false);
+  const [forceShowApp, setForceShowApp] = useState(false);
   const { toast } = useToast();
+
+  // Force show app after 8 seconds as safety net
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ Force showing app after 8 seconds timeout');
+      setForceShowApp(true);
+    }, 8000);
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Check user preferences when user is authenticated
+  useEffect(() => {
+    if (user && !checkingPreferences) {
+      console.log('🔍 User authenticated, checking preferences...');
+      checkUserPreferences();
+    }
+  }, [user]); // Only depend on user, not checkingPreferences to avoid loops
+
+  // Quick check if user has preferences (without setting state)
+  const checkUserPreferencesStatus = async (): Promise<boolean> => {
+    if (!user) {
+      console.log('🔍 No user found, no preferences');
+      return false;
+    }
+    
+    try {
+      console.log('🔍 Quick check for user preferences...');
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Error checking preferences status:', error);
+        return false;
+      }
+
+      const hasPreferences = !!data;
+      console.log('🔍 User preferences status:', hasPreferences);
+      return hasPreferences;
+    } catch (error) {
+      console.error('❌ Exception checking preferences status:', error);
+      return false;
+    }
+  };
 
   // Convert AssemblyAI data to AnalysisResult format
   const convertAssemblyAIToAnalysisResult = (assemblyData: any, duration: number): AnalysisResult => {
@@ -245,43 +293,136 @@ const Index = () => {
   // Check for user preferences (but don't redirect automatically)
   useEffect(() => {
     if (user && !checkingPreferences) {
-      checkUserPreferences();
+      console.log('🔍 User authenticated, starting preferences check...');
+      testSupabaseConnection().then(() => {
+        checkUserPreferences();
+      });
     }
   }, [user]);
 
-  const checkUserPreferences = async () => {
-    if (!user) return;
-    
-    setCheckingPreferences(true);
+  // Test Supabase connection before making queries
+  const testSupabaseConnection = async () => {
+    console.log('🔍 Testing Supabase connection...');
     try {
+      // Test basic connection with a simple query
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('count')
+        .limit(1);
+      
+      if (error) {
+        console.error('❌ Supabase connection test failed:', error);
+        console.error('❌ Connection error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        });
+      } else {
+        console.log('✅ Supabase connection test successful');
+        console.log('✅ Table user_preferences is accessible');
+      }
+    } catch (error) {
+      console.error('❌ Exception during Supabase connection test:', error);
+    }
+  };
+
+  const checkUserPreferences = async () => {
+    if (!user) {
+      console.log('🔍 No user found, skipping preferences check');
+      return;
+    }
+    
+    console.log('🔍 Starting preferences check for user:', user.id);
+    setCheckingPreferences(true);
+    
+    // Single, reliable timeout protection
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ Preferences check timed out after 8 seconds - forcing completion');
+      setCheckingPreferences(false);
+      toast({
+        title: "Preferences check timeout",
+        description: "Continuing without preferences. You can set them later.",
+        variant: "destructive",
+      });
+    }, 8000);
+    
+    try {
+      console.log('🔍 Making Supabase query to user_preferences table...');
+      const startTime = Date.now();
+      
+      // Simplified query with better error handling
       const { data, error } = await supabase
         .from('user_preferences')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
 
+      const endTime = Date.now();
+      console.log(`🔍 Supabase query completed in ${endTime - startTime}ms`);
+
+      // Clear timeout since query completed
+      clearTimeout(timeoutId);
+
       if (error) {
-        console.error('Error checking preferences:', error);
+        console.error('❌ Supabase error checking preferences:', error);
+        console.error('❌ Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // Show user-friendly error message
+        toast({
+          title: "Preferences check failed",
+          description: "Continuing without preferences. You can set them later.",
+          variant: "destructive",
+        });
+        
         setCheckingPreferences(false);
         return;
       }
 
+      console.log('✅ Supabase query successful');
+      console.log('🔍 Query result:', data);
+
       // Store whether preferences exist but don't redirect automatically
-      // Users can access the app without setting preferences first
       if (!data) {
-        console.log('No preferences found - user can set them later');
+        console.log('ℹ️ No preferences found - user can set them later');
+        toast({
+          title: "No preferences found",
+          description: "You can set your preferences later in the settings.",
+        });
+      } else {
+        console.log('✅ User preferences found');
       }
+      
     } catch (error) {
-      console.error('Error checking preferences:', error);
+      console.error('❌ Exception during preferences check:', error);
+      console.error('❌ Exception type:', typeof error);
+      console.error('❌ Exception stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      // Show user-friendly error message
+      toast({
+        title: "Preferences check failed",
+        description: "Continuing without preferences. You can set them later.",
+        variant: "destructive",
+      });
+    } finally {
+      // Always ensure state is reset
+      console.log('🔍 Preferences check completed, setting checkingPreferences to false');
+      clearTimeout(timeoutId);
+      setCheckingPreferences(false);
     }
-    setCheckingPreferences(false);
   };
 
-  // Fetch recordings when user is authenticated
+  // Fetch recordings when user is authenticated and preferences check is complete
   useEffect(() => {
     if (user && !checkingPreferences) {
+      console.log('🔍 User authenticated and preferences check complete, fetching recordings');
       fetchRecordings();
-    } else {
+    } else if (!user) {
+      console.log('🔍 No user, clearing recordings');
       setRecordings([]);
     }
   }, [user, checkingPreferences]);
@@ -334,8 +475,18 @@ const Index = () => {
     }
   };
 
-  // Show loading state while checking auth or preferences
-  if (loading || checkingPreferences) {
+  // Debug logging
+  console.log('🔍 Index component render state:', { 
+    loading, 
+    user: user?.email, 
+    session: !!session, 
+    checkingPreferences,
+    forceShowApp 
+  });
+
+  // Show loading state only while checking auth (not preferences)
+  if (loading && !forceShowApp) {
+    console.log('🔍 Showing loading screen because loading=true');
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background flex items-center justify-center">
         <div className="text-center">
@@ -343,7 +494,8 @@ const Index = () => {
             <Mic className="w-8 h-8 text-primary-foreground" />
           </div>
           <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">{checkingPreferences ? 'Checking preferences...' : 'Loading...'}</p>
+          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-xs text-muted-foreground mt-2">This should only take a few seconds</p>
         </div>
       </div>
     );
@@ -354,7 +506,10 @@ const Index = () => {
     return <Auth />;
   }
 
-  // Replace handleRecordingComplete to use direct AssemblyAI with improved analysis
+  // Show main app if user is authenticated (regardless of preferences check)
+  console.log('🔍 User authenticated, showing main app');
+
+  // Replace handleRecordingComplete to use smart analysis method selection
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -363,29 +518,69 @@ const Index = () => {
       
       let analysis: AnalysisResult;
       
-      // Always use live transcription - no cached results
+      // Check if user has preferences to choose analysis method
+      let hasPreferences = false;
       if (user?.id) {
-        console.log('🔄 Using VoicePro for real-time analysis...');
+        hasPreferences = await checkUserPreferencesStatus();
         
-        // Use VoicePro analysis for actual transcription
-        const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
-        console.log('✅ Live VoicePro analysis completed:', assemblyAIResult);
-        
-        // Set transcript for TextAnalytics
-        setTranscriptText(assemblyAIResult.transcript);
-        
-        // Use our improved conversion function for better analysis
-        analysis = convertAssemblyAIToAnalysisResult(assemblyAIResult, duration);
-        
-        // Override with personalized analysis if available
-        if (assemblyAIResult.personalizedAnalysis) {
-          analysis.overall_score = assemblyAIResult.personalizedAnalysis.overallScore || analysis.overall_score;
-          analysis.clarity_score = assemblyAIResult.personalizedAnalysis.clarityScore || analysis.clarity_score;
-          analysis.suggestions = assemblyAIResult.personalizedAnalysis.recommendations || analysis.suggestions;
-          analysis.strengths = assemblyAIResult.personalizedAnalysis.strengths || analysis.strengths;
+        if (hasPreferences) {
+          console.log('🔄 User has preferences, trying VoicePro analysis...');
+          
+          toast({
+            title: "Analyzing your speech...",
+            description: "Using personalized analysis. This may take 30-60 seconds.",
+            duration: 5000,
+          });
+          
+          try {
+            // Use VoicePro analysis for users with preferences
+            const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
+            console.log('✅ Live VoicePro analysis completed:', assemblyAIResult);
+            
+            // Set transcript for TextAnalytics
+            setTranscriptText(assemblyAIResult.transcript);
+            
+            // Use our improved conversion function for better analysis
+            analysis = convertAssemblyAIToAnalysisResult(assemblyAIResult, duration);
+            
+            // Override with personalized analysis if available
+            if (assemblyAIResult.personalizedAnalysis) {
+              analysis.overall_score = assemblyAIResult.personalizedAnalysis.overallScore || analysis.overall_score;
+              analysis.clarity_score = assemblyAIResult.personalizedAnalysis.clarityScore || analysis.clarity_score;
+              analysis.suggestions = assemblyAIResult.personalizedAnalysis.recommendations || analysis.suggestions;
+              analysis.strengths = assemblyAIResult.personalizedAnalysis.strengths || analysis.strengths;
+            }
+          } catch (error) {
+            console.warn('⚠️ VoicePro analysis failed, falling back to direct AssemblyAI:', error);
+            
+            toast({
+              title: "Retrying analysis...",
+              description: "Using standard analysis method.",
+              duration: 3000,
+            });
+            
+            // Fallback to direct AssemblyAI if VoicePro fails
+            const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+            analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
+            setTranscriptText(assemblyResult.transcript);
+          }
+        } else {
+          console.log('🔄 No preferences found, using direct AssemblyAI analysis...');
+          
+          toast({
+            title: "Analyzing your speech...",
+            description: "Using standard analysis. Set preferences for personalized insights.",
+            duration: 5000,
+          });
+          
+          // Use direct AssemblyAI for users without preferences
+          const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+          analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
+          setTranscriptText(assemblyResult.transcript);
         }
       } else {
         // Fallback for non-authenticated users - use direct AssemblyAI
+        console.log('🔄 Non-authenticated user, using direct AssemblyAI...');
         const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
         analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
       }
@@ -450,14 +645,24 @@ const Index = () => {
       // Auto-open analysis section
       setAnalysisOpen(true);
       
+      // Show completion message with analysis method info
+      const analysisMethod = hasPreferences ? "personalized" : "standard";
       toast({
         title: "Analysis Complete!",
-        description: `Your speech scored ${analysis.overall_score}/100`,
+        description: `Your speech scored ${analysis.overall_score}/100 using ${analysisMethod} analysis. Check the analysis tab for detailed insights.`,
       });
       
     } catch (error) {
+      console.error('❌ Analysis failed completely:', error);
       setAnalysisError(error instanceof Error ? error.message : 'Unknown error occurred');
       setCurrentAnalysis(null);
+      
+      toast({
+        title: "Analysis failed",
+        description: "Unable to analyze your speech. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
     } finally {
       setIsAnalyzing(false);
     }
@@ -787,6 +992,16 @@ const Index = () => {
                     {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                   </span>
                 </div>
+                <Button
+                  onClick={signOut}
+                  variant="ghost"
+                  size="sm"
+                  className="p-2 hover:bg-accent/50 rounded-lg transition-colors flex items-center space-x-1 text-muted-foreground hover:text-foreground"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm hidden sm:inline">Logout</span>
+                </Button>
                 <Link 
                   to="/USER_GUIDE.md" 
                   target="_blank"
