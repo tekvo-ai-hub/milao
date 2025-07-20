@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings, Zap, Loader2, HelpCircle } from 'lucide-react';
+import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings, Zap, Loader2, HelpCircle, MessageSquare, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
@@ -113,6 +113,7 @@ const Index = () => {
 
   // Convert AssemblyAI data to AnalysisResult format
   const convertAssemblyAIToAnalysisResult = (assemblyData: any, duration: number): AnalysisResult => {
+    
     // Calculate words per minute
     const wordCount = assemblyData.words?.length || 0;
     const durationInMinutes = duration / 60;
@@ -519,12 +520,11 @@ const Index = () => {
       let analysis: AnalysisResult;
       
       // Check if user has preferences to choose analysis method
-      let hasPreferences = false;
       if (user?.id) {
-        hasPreferences = await checkUserPreferencesStatus();
+        const hasPreferences = await checkUserPreferencesStatus();
         
         if (hasPreferences) {
-          console.log('🔄 User has preferences, trying VoicePro analysis...');
+          console.log('🔄 User has preferences, trying Orato analysis...');
           
           toast({
             title: "Analyzing your speech...",
@@ -533,9 +533,9 @@ const Index = () => {
           });
           
           try {
-            // Use VoicePro analysis for users with preferences
+            // Use Orato analysis for users with preferences
             const assemblyAIResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
-            console.log('✅ Live VoicePro analysis completed:', assemblyAIResult);
+                          console.log('✅ Live Orato analysis completed:', assemblyAIResult);
             
             // Set transcript for TextAnalytics
             setTranscriptText(assemblyAIResult.transcript);
@@ -550,8 +550,8 @@ const Index = () => {
               analysis.suggestions = assemblyAIResult.personalizedAnalysis.recommendations || analysis.suggestions;
               analysis.strengths = assemblyAIResult.personalizedAnalysis.strengths || analysis.strengths;
             }
-          } catch (error) {
-            console.warn('⚠️ VoicePro analysis failed, falling back to direct AssemblyAI:', error);
+    } catch (error) {
+            console.warn('⚠️ Orato analysis failed, falling back to direct AssemblyAI:', error);
             
             toast({
               title: "Retrying analysis...",
@@ -559,7 +559,7 @@ const Index = () => {
               duration: 3000,
             });
             
-            // Fallback to direct AssemblyAI if VoicePro fails
+            // Fallback to direct AssemblyAI if Orato fails
             const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
             analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
             setTranscriptText(assemblyResult.transcript);
@@ -645,11 +645,9 @@ const Index = () => {
       // Auto-open analysis section
       setAnalysisOpen(true);
       
-      // Show completion message with analysis method info
-      const analysisMethod = hasPreferences ? "personalized" : "standard";
       toast({
         title: "Analysis Complete!",
-        description: `Your speech scored ${analysis.overall_score}/100 using ${analysisMethod} analysis. Check the analysis tab for detailed insights.`,
+        description: `Your speech scored ${analysis.overall_score}/100. Check the analysis tab for detailed insights.`,
       });
       
     } catch (error) {
@@ -979,7 +977,7 @@ const Index = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                    VoicePro AI
+                    Orato
                   </h1>
                   <p className="text-muted-foreground text-xs">AI Speech Coach</p>
                 </div>
@@ -1098,11 +1096,11 @@ const Index = () => {
                     </CollapsibleContent>
                   </Collapsible>
 
-          {/* Recording Interface */}
-          <AudioRecorder
-            onRecordingComplete={handleRecordingComplete}
-            isAnalyzing={isAnalyzing}
-          />
+                  {/* Recording Interface */}
+                    <AudioRecorder
+                      onRecordingComplete={handleRecordingComplete}
+                      isAnalyzing={isAnalyzing}
+                    />
                 </CardContent>
               </CollapsibleContent>
             </Card>
@@ -1187,6 +1185,46 @@ const Index = () => {
                     </div>
                   ) : currentAnalysis ? (
                     <div className="space-y-6">
+                      {/* Clean Transcript Display */}
+                      {currentAnalysis.transcript && (
+                        <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
+                          <CardHeader>
+                            <CardTitle className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                                <MessageSquare className="h-5 w-5" />
+                                Speech Transcript
+                          </div>
+                              <Button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(currentAnalysis.transcript);
+                                  toast({
+                                    title: "Transcript copied!",
+                                    description: "Transcript copied to clipboard",
+                                  });
+                                }}
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center space-x-2"
+                              >
+                                <Copy className="w-4 h-4" />
+                                <span>Copy</span>
+                              </Button>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="p-4 bg-muted/50 rounded-lg border">
+                              <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap">
+                                {currentAnalysis.transcript}
+                              </p>
+                        </div>
+                            <div className="flex justify-between items-center text-xs text-muted-foreground mt-3">
+                              <span>{currentAnalysis.transcript.split(' ').length} words</span>
+                              <span>{currentAnalysis.transcript.length} characters</span>
+                          </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                      
                       {/* Use the comprehensive SpeechAnalysis component */}
                       <SpeechAnalysis 
                         analysis={currentAnalysis} 
@@ -1208,7 +1246,7 @@ const Index = () => {
                           <Plus className="w-4 h-4 mr-2" />
                           Start New Recording
                         </Button>
-                      </div>
+                        </div>
                     </div>
                   ) : (
                     <div className="p-8 text-center">

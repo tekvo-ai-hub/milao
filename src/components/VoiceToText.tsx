@@ -28,10 +28,10 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
       onTranscriptGenerated?.(result.transcript);
       toast({
         title: "Analysis Complete",
-        description: "VoicePro analysis done",
+        description: "Orato analysis done",
       });
     } catch (error) {
-      console.error('VoicePro analysis failed:', error);
+      console.error('Orato analysis failed:', error);
       toast({
         title: "Analysis Failed",
         description: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -80,7 +80,7 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
               <div className="text-center py-8">
                 <Cloud className="w-8 h-8 animate-pulse mx-auto mb-4 text-primary" />
                 <p className="text-muted-foreground">
-                  Analyzing speech with VoicePro...
+                  Analyzing speech with Orato...
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
                   Getting transcription, sentiment analysis, and speech insights
@@ -136,7 +136,7 @@ export const VoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated 
               <div>
                 <p className="text-sm font-medium">Advanced Speech Analysis</p>
                 <p className="text-xs text-muted-foreground">
-                  Using VoicePro for transcription, sentiment analysis, and speech insights
+                  Using Orato for transcription, sentiment analysis, and speech insights
                 </p>
               </div>
             </div>

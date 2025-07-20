@@ -83,19 +83,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
     return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') || MediaRecorder.isTypeSupported('audio/mp4') || MediaRecorder.isTypeSupported('audio/wav');
   };
 
-  // Get supported MIME type for MediaRecorder (optimized for AssemblyAI)
+  // Get supported MIME type for MediaRecorder
   const getSupportedMimeType = () => {
-    // AssemblyAI supports: mp3, mp4, m4a, wav, flac, aac, ogg, webm, wma
-    // Prioritize formats that don't need conversion
     const types = [
-      'audio/wav',                    // Direct support, no conversion needed
-      'audio/mp3',                    // Direct support
-      'audio/mp4',                    // Direct support
-      'audio/m4a',                    // Direct support
-      'audio/webm;codecs=opus',       // Needs conversion
-      'audio/webm',                   // Needs conversion
-      'audio/ogg;codecs=opus',        // Needs conversion
-      'audio/ogg'                     // Needs conversion
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/wav',
+      'audio/ogg;codecs=opus',
+      'audio/ogg'
     ];
     
     for (const type of types) {
@@ -395,8 +391,14 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   };
 
   const analyzeRecording = () => {
+    console.log('🔍 Analyze button clicked!');
+    console.log('🔍 Audio blob exists:', !!audioBlob);
+    console.log('🔍 Duration:', duration);
     if (audioBlob) {
+      console.log('🔍 Calling onRecordingComplete with blob size:', audioBlob.size);
       onRecordingComplete(audioBlob, duration);
+    } else {
+      console.error('❌ No audio blob available for analysis');
     }
   };
 

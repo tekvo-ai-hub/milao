@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     console.log('🔍 useAuth: Starting initialization...');
-    
+        
     // Add timeout protection
     const timeoutId = setTimeout(() => {
       console.warn('⚠️ useAuth: Initialization timed out after 5 seconds - forcing completion');
@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('🔍 useAuth: Auth state change:', event, session?.user?.email);
-        
+
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -38,20 +38,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     // Get current session immediately
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
         console.error('❌ useAuth: Session error:', error);
-        setSession(null);
-        setUser(null);
-      } else {
+          setSession(null);
+          setUser(null);
+        } else {
         console.log('🔍 useAuth: Current session result:', { 
           hasSession: !!session, 
           userEmail: session?.user?.email 
         });
-        setSession(session);
-        setUser(session?.user ?? null);
-      }
-      setLoading(false);
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
+        setLoading(false);
       clearTimeout(timeoutId);
     }).catch(error => {
       console.error('❌ useAuth: Exception during session check:', error);

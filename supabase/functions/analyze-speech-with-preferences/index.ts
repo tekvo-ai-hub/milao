@@ -146,7 +146,7 @@ async function pollTranscription(transcriptId: string): Promise<any> {
 async function generatePersonalizedAnalysis(transcript: string, assemblyData: any, preferences: any): Promise<any> {
   try {
     console.log('Generating personalized analysis from AssemblyAI data...');
-    
+
     // Generate a structured analysis based on AssemblyAI data only
     const analysis = generateStructuredAnalysis(transcript, assemblyData, preferences, null);
     

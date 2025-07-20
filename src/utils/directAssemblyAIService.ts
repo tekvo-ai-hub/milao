@@ -75,6 +75,9 @@ async function uploadAudio(audioData: Uint8Array): Promise<string> {
     throw new Error('AssemblyAI API key not configured. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
   }
 
+  console.log('🔍 Uploading audio to AssemblyAI...');
+  console.log('🔍 Audio data size:', audioData.length, 'bytes');
+
   const response = await fetch(`${ASSEMBLYAI_BASE_URL}/upload`, {
     method: 'POST',
     headers: {
@@ -85,11 +88,18 @@ async function uploadAudio(audioData: Uint8Array): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`Upload failed: ${await response.text()}`);
+    const errorText = await response.text();
+    console.error('❌ AssemblyAI upload failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      error: errorText
+    });
+    throw new Error(`Upload failed: ${errorText}`);
   }
 
-  const { upload_url } = await response.json();
-  return upload_url;
+  const result = await response.json();
+  console.log('✅ Upload successful, upload_url:', result.upload_url);
+  return result.upload_url;
 }
 
 // Submit transcription request
@@ -185,39 +195,73 @@ export const analyzeAudioWithAssemblyAIDirect = async (audioBlob: Blob): Promise
       throw new Error('AssemblyAI API key not configured. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
     }
 
-    console.log('🔄 Converting audio blob to binary...');
-    console.log('Audio blob info:', {
-      size: audioBlob.size,
-      type: audioBlob.type
-    });
+    console.log('🔄 Processing audio for AssemblyAI...');
+    console.log('Audio info:', { size: audioBlob.size, type: audioBlob.type });
+    
+    // Check if audio blob is empty or too small
+    if (audioBlob.size < 1000) {
+      console.error('❌ Audio blob is too small:', audioBlob.size, 'bytes');
+      throw new Error('Audio recording is too small or empty. Please try recording again.');
+    }
 
-    // Convert audio to a supported format if needed
+    // Try to use original format first, especially for WebM
     let processedBlob = audioBlob;
     
     // AssemblyAI supports: mp3, mp4, m4a, wav, flac, aac, ogg, webm, wma
     const supportedTypes = ['audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/webm', 'audio/wma'];
     
-    if (!supportedTypes.includes(audioBlob.type)) {
-      console.log('⚠️ Audio type not directly supported, converting to WAV...');
+    // Check if original format is supported
+    if (supportedTypes.includes(audioBlob.type)) {
+      console.log('✅ Using original format:', audioBlob.type);
       
-      // Convert to WAV using Web Audio API
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      // Test original audio data quality
+      const testArrayBuffer = await audioBlob.arrayBuffer();
+      const testUint8Array = new Uint8Array(testArrayBuffer);
+      const nonZeroBytes = testUint8Array.filter(byte => byte !== 0).length;
       
-      // Convert to WAV format
-      const wavBlob = await convertToWav(audioBuffer);
-      processedBlob = wavBlob;
-      console.log('✅ Audio converted to WAV format');
+      if (nonZeroBytes > 1000) {
+        processedBlob = audioBlob;
+      } else {
+        console.warn('⚠️ Audio data insufficient, attempting conversion...');
+      }
     } else {
-      console.log('✅ Audio format already supported by AssemblyAI, no conversion needed');
+      console.log('⚠️ Format not in supported list, trying anyway');
+    }
+    
+    // If we need to convert, try WAV conversion
+    if (processedBlob === audioBlob && audioBlob.size < 1000) {
+      console.log('⚠️ Audio too small, attempting WAV conversion...');
+      
+      try {
+        // Convert to WAV using Web Audio API
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        
+        // Convert to WAV format
+        const wavBlob = await convertToWav(audioBuffer);
+        processedBlob = wavBlob;
+        console.log('✅ Audio converted to WAV format');
+      } catch (conversionError) {
+        console.error('❌ WAV conversion failed:', conversionError);
+        console.log('⚠️ Falling back to original format');
+        processedBlob = audioBlob;
+      }
     }
 
     // Use FileReader for more reliable conversion
     const arrayBuffer = await processedBlob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
-    console.log('✅ Audio converted to binary, size:', uint8Array.length);
+    console.log('✅ Audio ready for upload, size:', uint8Array.length);
+    
+    // Check if we have actual audio data (not just zeros)
+    const nonZeroBytes = uint8Array.filter(byte => byte !== 0).length;
+    
+    if (nonZeroBytes < 100) {
+      console.error('❌ Audio appears to be mostly silence or corrupted');
+      throw new Error('Audio recording appears to be empty or corrupted. Please try recording again.');
+    }
     
     // Upload audio directly as binary (no base64 conversion needed)
     const uploadUrl = await uploadAudio(uint8Array);
@@ -230,12 +274,16 @@ export const analyzeAudioWithAssemblyAIDirect = async (audioBlob: Blob): Promise
     // Poll for completion with better timing
     const result = await pollTranscription(transcriptId);
     console.log('✅ Transcription completed');
+    console.log('🔍 AssemblyAI result:', result);
+    console.log('🔍 Result text:', result.text);
+    console.log('🔍 Result status:', result.status);
+    console.log('🔍 Result error:', result.error);
 
     // Extract key insights
     const analysis: AssemblyAIAnalysis = {
-      transcript: result.text,
-      confidence: result.confidence,
-      summary: result.summary,
+      transcript: result.text || '',
+      confidence: result.confidence || 0,
+      summary: result.summary || '',
       sentiment: result.sentiment_analysis_results?.[0] || null,
       entities: result.entities || [],
       categories: result.iab_categories_result || {},
@@ -262,6 +310,14 @@ export const analyzeAudioWithAssemblyAIDirect = async (audioBlob: Blob): Promise
 
 // Helper function to convert AudioBuffer to WAV format
 async function convertToWav(audioBuffer: AudioBuffer): Promise<Blob> {
+  console.log('🔍 Converting AudioBuffer to WAV...');
+  console.log('🔍 AudioBuffer info:', {
+    length: audioBuffer.length,
+    numberOfChannels: audioBuffer.numberOfChannels,
+    sampleRate: audioBuffer.sampleRate,
+    duration: audioBuffer.duration
+  });
+  
   const length = audioBuffer.length;
   const numberOfChannels = audioBuffer.numberOfChannels;
   const sampleRate = audioBuffer.sampleRate;
@@ -289,15 +345,27 @@ async function convertToWav(audioBuffer: AudioBuffer): Promise<Blob> {
   writeString(36, 'data');
   view.setUint32(40, length * numberOfChannels * 2, true);
   
-  // Convert audio data
+  // Convert audio data with better handling
   let offset = 44;
+  let nonZeroSamples = 0;
+  
   for (let i = 0; i < length; i++) {
     for (let channel = 0; channel < numberOfChannels; channel++) {
-      const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      const sample = audioBuffer.getChannelData(channel)[i];
+      if (Math.abs(sample) > 0.001) nonZeroSamples++;
+      
+      // Clamp and convert to 16-bit
+      const clampedSample = Math.max(-1, Math.min(1, sample));
+      const int16Sample = clampedSample < 0 ? clampedSample * 0x8000 : clampedSample * 0x7FFF;
+      view.setInt16(offset, int16Sample, true);
       offset += 2;
     }
   }
   
-  return new Blob([arrayBuffer], { type: 'audio/wav' });
+  console.log('🔍 WAV conversion complete. Non-zero samples:', nonZeroSamples, 'out of', length * numberOfChannels);
+  
+  const wavBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+  console.log('🔍 WAV blob size:', wavBlob.size);
+  
+  return wavBlob;
 } 
