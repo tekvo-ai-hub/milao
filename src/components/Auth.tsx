@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Mic, UserPlus, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState('');
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, session } = useAuth();
 
   // Clear any existing session when component mounts
   useEffect(() => {
@@ -24,6 +26,12 @@ const Auth = () => {
     };
     clearSession();
   }, []);
+
+  useEffect(() => {
+    if (user && session) {
+      navigate('/app');
+    }
+  }, [user, session, navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
