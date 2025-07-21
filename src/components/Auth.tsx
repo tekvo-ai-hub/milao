@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Mic, UserPlus, LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -14,6 +15,7 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Clear any existing session when component mounts
   useEffect(() => {
@@ -96,6 +98,9 @@ const Auth = () => {
             variant: "destructive",
           });
         }
+      } else {
+        // Redirect to /app after successful login
+        navigate('/app');
       }
     } catch (error) {
       toast({

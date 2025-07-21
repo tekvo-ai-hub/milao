@@ -4,7 +4,7 @@
 This guide will help you set up AssemblyAI integration with your voice insight guide application using the provided API key.
 
 ## 🔑 **API Key**
-Your AssemblyAI API Key: `78cb339aa95b49bd9821c013dfda64d8`
+Your AssemblyAI API Key: 
 
 ## 🚀 **Setup Steps**
 
