@@ -1,3 +1,9 @@
+// Switch component using design tokens and shadcn/ui patterns
+// Usage:
+//   <Switch checked={on} onCheckedChange={setOn} />
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 import * as React from "react"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 

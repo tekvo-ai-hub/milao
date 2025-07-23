@@ -66,6 +66,23 @@ export default {
 					ring: 'hsl(var(--sidebar-ring))'
 				}
 			},
+			// Gradients as CSS variables (usage: bg-[var(--gradient-primary)])
+			gradientColorStops: theme => ({
+				'primary': 'var(--gradient-primary)',
+				'secondary': 'var(--gradient-secondary)',
+				'accent': 'var(--gradient-accent)',
+			}),
+			// Glass effect tokens
+			glass: {
+				bg: 'var(--glass-bg)',
+				border: 'var(--glass-border)',
+			},
+			// Shadow tokens (usage: shadow-[var(--shadow-soft)])
+			boxShadow: {
+				soft: 'var(--shadow-soft)',
+				strong: 'var(--shadow-strong)',
+				glow: 'var(--shadow-glow)',
+			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',

@@ -1,73 +1,93 @@
-# Welcome to your Lovable project
+# Milao – AI Speech Analysis App
 
-## Project info
+Milao is a modern, privacy-first AI-powered speech analysis platform. Record or upload your speech, get instant feedback, track your progress, and improve your communication skills with real AssemblyAI insights.
 
-**URL**: https://lovable.dev/projects/3d7ae364-f75b-4d5c-8255-c35d878a8594
+---
 
-## How can I edit this code?
+## 🚀 Features
 
-There are several ways of editing your application.
+- 🎤 **Record or Upload Audio** – Fast, browser-based recording and upload
+- 🤖 **AI Speech Analysis** – Powered by AssemblyAI (transcription, sentiment, topics, entities, content safety, etc.)
+- 📊 **Detailed Dashboard** – See transcript, metrics, filler words, speaker breakdown, and more
+- 🕒 **Recording History** – Review, search, and filter all your past sessions
+- 👤 **User Preferences** – Personalize your experience and learning goals
+- 🔒 **Privacy-First** – No voice or data stored without consent; real-time analysis
+- 🦾 **Modern UI** – Built with React, Tailwind CSS, and shadcn/ui for a beautiful, responsive experience
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3d7ae364-f75b-4d5c-8255-c35d878a8594) and start prompting.
+## 🗂️ Folder Structure
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+voice-insight-guide/
+├── public/                # Static assets (logos, images, videos)
+├── src/
+│   ├── pages/             # Main app pages (Landing, App, History, Dashboard, Auth, etc.)
+│   ├── components/        # UI components, recorders, analysis, etc.
+│   ├── hooks/             # Custom React hooks
+│   ├── integrations/      # Supabase client & types
+│   ├── services/          # AI and analysis services
+│   ├── utils/             # AssemblyAI, analysis, helpers
+│   ├── types/             # TypeScript types
+├── supabase/              # Edge functions, config, migrations
+├── package.json, tailwind.config.ts, etc.
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## ⚡ Getting Started
 
-**Use GitHub Codespaces**
+### 1. **Clone the Repo**
+```sh
+git clone https://github.com/yourusername/voice-insight-guide.git
+cd voice-insight-guide
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 2. **Install Dependencies**
+```sh
+npm install
+```
 
-## What technologies are used for this project?
+### 3. **Set Up Environment**
+- Copy `.env.example` to `.env` and fill in your Supabase and AssemblyAI keys.
+- Example:
+  ```env
+  VITE_SUPABASE_URL=...
+  VITE_SUPABASE_ANON_KEY=...
+  VITE_ASSEMBLYAI_API_KEY=...
+  ```
 
-This project is built with:
+### 4. **Run the App Locally**
+```sh
+npm run dev
+```
+Visit [http://localhost:8080](http://localhost:8080) in your browser.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## 🧑‍💻 Usage
 
-Simply open [Lovable](https://lovable.dev/projects/3d7ae364-f75b-4d5c-8255-c35d878a8594) and click on Share -> Publish.
+- **Landing Page:** Learn about Milao and get started
+- **Sign Up / Sign In:** Create an account or log in
+- **Main App:** Record/upload audio, analyze speech, view results
+- **Dashboard:** See detailed analysis, transcript, metrics, filler words, speaker breakdown, and more
+- **History:** Review and search all your past recordings
+- **Preferences:** Set your learning goals and profile
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## 🛠️ Tech Stack
+- **Frontend:** React, Vite, TypeScript
+- **UI:** Tailwind CSS, shadcn/ui, Lucide Icons
+- **Backend:** Supabase (auth, storage, edge functions)
+- **AI Analysis:** AssemblyAI
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 🤝 Contributing
+Pull requests and issues are welcome! Please open an issue to discuss major changes first.
+
+---
+
+## 📄 License
+MIT License. See [LICENSE](LICENSE) for details.

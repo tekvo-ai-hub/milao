@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings, Zap, Loader2, HelpCircle, MessageSquare, Copy } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import AudioRecorder from '@/components/AudioRecorder';
 import AudioUpload from '@/components/AudioUpload';
 import SpeechAnalysis from '@/components/SpeechAnalysis';
@@ -24,7 +24,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { analyzeAudioWithAssemblyAIDirect } from '@/utils/directAssemblyAIService';
-import { useNavigate } from 'react-router-dom';
 
 interface RecordingData {
   id: string;
@@ -390,10 +389,6 @@ const Index = () => {
       // Store whether preferences exist but don't redirect automatically
       if (!data) {
         console.log('ℹ️ No preferences found - user can set them later');
-        toast({
-          title: "No preferences found",
-          description: "You can set your preferences later in the settings.",
-        });
       } else {
         console.log('✅ User preferences found');
       }
@@ -585,71 +580,12 @@ const Index = () => {
         analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
       }
       
+      // After analysis is complete:
       setCurrentAnalysis(analysis);
       setCurrentDuration(Math.floor(duration || 0));
       setCurrentAudioBlob(audioBlob);
-      
-      // Upload audio file to storage if user is authenticated
-      if (user?.id) {
-        const fileName = `${user.id}/${Date.now()}-recording.webm`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('audio-recordings')
-          .upload(fileName, audioBlob, {
-            contentType: 'audio/webm'
-          });
-
-        if (uploadError) {
-          console.error('Error uploading audio:', uploadError);
-          toast({
-            title: "Upload Failed",
-            description: "Could not save audio file.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Get the public URL for the audio file
-        const { data: { publicUrl } } = supabase.storage
-          .from('audio-recordings')
-          .getPublicUrl(fileName);
-        
-        // Save to Supabase database with audio URL
-        const { error } = await supabase
-          .from('speech_recordings')
-          .insert({
-            user_id: user.id,
-            title: `Recording ${new Date().toLocaleDateString()}`,
-            duration: Math.floor(duration || 0),
-            overall_score: analysis.overall_score,
-            clarity_score: analysis.clarity_score,
-            pace: analysis.pace_analysis.words_per_minute,
-            filler_words_count: analysis.filler_words.count,
-            primary_tone: analysis.tone_analysis.primary_tone,
-            analysis_data: analysis as any,
-            audio_url: publicUrl
-          });
-
-        if (error) {
-          console.error('Error saving recording:', error);
-          toast({
-            title: "Save Failed",
-            description: "Recording analyzed but couldn't save to database.",
-            variant: "destructive",
-          });
-        } else {
-          // Refresh recordings from database to stay in sync
-          fetchRecordings();
-        }
-      }
-      
-      // Auto-open analysis section
-      setAnalysisOpen(true);
-      
-      toast({
-        title: "Analysis Complete!",
-        description: `Your speech scored ${analysis.overall_score}/100. Check the analysis tab for detailed insights.`,
-      });
-      
+      // Navigate to the new dashboard, passing analysis data via state
+      navigate('/analysis-result', { state: { analysis, duration: Math.floor(duration || 0), audioBlob } });
     } catch (error) {
       console.error('❌ Analysis failed completely:', error);
       setAnalysisError(error instanceof Error ? error.message : 'Unknown error occurred');
@@ -966,339 +902,79 @@ const Index = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <main className="flex-1 bg-gradient-to-br from-background via-accent/20 to-background">
-          {/* Header with Sidebar Toggle */}
-          <header className="sticky top-0 z-10 bg-card/50 backdrop-blur-md border-b border-[var(--glass-border)] p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-gradient-to-r from-primary to-primary/80 rounded-xl shadow-[var(--shadow-glow)]">
-                  <Smartphone className="w-6 h-6 text-primary-foreground" />
+      <div className="w-full min-h-screen flex flex-col bg-gradient-to-br from-background via-accent/20 to-background">
+        {/* Minimal Navbar */}
+        <nav className="w-full flex items-center justify-between px-6 py-2 bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <img src="/milao_logo.png" alt="Milao Logo" className="w-24 h-24 rounded-xl object-contain p-1" />
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <Button variant="ghost" className="text-gray-700 font-medium" onClick={() => navigate('/app')}>Record Again</Button>
+            <Button variant="ghost" className={`text-gray-700 font-medium${window.location.pathname === '/history' ? ' font-bold text-purple-700 border-b-2 border-purple-700' : ''}`} onClick={() => navigate('/history')}>History</Button>
+            <Button variant="ghost" className="text-gray-700 font-medium" onClick={() => navigate('/analysis-result')}>Dashboard</Button>
+            <div className="relative group">
+              <Button variant="ghost" className="p-0 rounded-full w-10 h-10 flex items-center justify-center">
+                <img src={`https://api.dicebear.com/7.x/notionists/svg?scale=200&seed=${user?.id || 'user'}`} alt="Profile" className="w-8 h-8 rounded-full" />
+              </Button>
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                <div className="p-4 border-b">
+                  <div className="font-semibold text-gray-900">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}</div>
+                  <div className="text-xs text-gray-500">{user.email}</div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                    Orato
-                  </h1>
-                  <p className="text-muted-foreground text-xs">AI Speech Coach</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 text-muted-foreground bg-card/50 backdrop-blur-sm px-3 py-2 rounded-full border border-[var(--glass-border)]">
-                  <User className="w-4 h-4" />
-                  <span className="text-sm">
-                    {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
-                  </span>
-                </div>
-                <Button
-                  onClick={signOut}
-                  variant="ghost"
-                  size="sm"
-                  className="p-2 hover:bg-accent/50 rounded-lg transition-colors flex items-center space-x-1 text-muted-foreground hover:text-foreground"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="text-sm hidden sm:inline">Logout</span>
-                </Button>
-                <Link 
-                  to="/USER_GUIDE.md" 
-                  target="_blank"
-                  className="p-2 hover:bg-accent/50 rounded-lg transition-colors flex items-center space-x-1 text-muted-foreground hover:text-foreground"
-                  title="Help & User Guide"
-                >
-                  <HelpCircle className="w-5 h-5" />
-                  <span className="text-sm hidden sm:inline">Help</span>
-                </Link>
-                <SidebarTrigger className="p-2 hover:bg-accent/50 rounded-lg transition-colors">
-                  <Menu className="w-5 h-5" />
-                </SidebarTrigger>
+                <Button variant="ghost" className="w-full justify-start text-gray-700" onClick={() => navigate('/preferences')}><Settings className="w-4 h-4 mr-2" />Settings</Button>
+                <Button variant="ghost" className="w-full justify-start text-gray-700" onClick={signOut}><LogOut className="w-4 h-4 mr-2" />Logout</Button>
+                <Button variant="ghost" className="w-full justify-start text-gray-700" onClick={() => window.open('/USER_GUIDE.md', '_blank')}><HelpCircle className="w-4 h-4 mr-2" />Help</Button>
               </div>
             </div>
-          </header>
-
-          <div className="container mx-auto px-4 py-6 max-w-4xl">
-
-            {/* Collapsible Sections */}
-            <div className="space-y-4">
-
-          {/* Record Section */}
-          <Collapsible open={recordOpen} onOpenChange={setRecordOpen}>
-            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Mic className="w-5 h-5 text-primary" />
-                      <span>Record</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${recordOpen ? 'rotate-180' : ''}`} />
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-6">
-                  {/* Hide upload option for now */}
-                  
-                  {/* Collapsible Tips */}
-                  <Collapsible open={tipsOpen} onOpenChange={setTipsOpen}>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" className="w-full justify-start p-0">
-                        <div className="flex items-center space-x-2 text-muted-foreground">
-                          <Plus className={`w-4 h-4 transition-transform ${tipsOpen ? 'rotate-45' : ''}`} />
-                          <span className="text-sm">Tips for better recording</span>
-                        </div>
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="mt-4 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20">
-                        <ul className="text-sm text-muted-foreground space-y-2">
-                          {recordingMethod === 'record' ? (
-                            <>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>Speak clearly and maintain natural pace</span>
-                              </li>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>Choose a quiet environment</span>
-                              </li>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>Maximum duration: 5 minutes</span>
-                              </li>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>Use pause/resume for better control</span>
-                              </li>
-                            </>
-                          ) : (
-                            <>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>Formats: MP3, WAV, WebM, M4A, OGG</span>
-                              </li>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>Maximum size: 50MB</span>
-                              </li>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>Optimal duration: 1-5 minutes</span>
-                              </li>
-                              <li className="flex items-center space-x-2">
-                                <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                <span>High quality audio improves accuracy</span>
-                              </li>
-                            </>
-                          )}
-                        </ul>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  {/* Recording Interface */}
-                    <AudioRecorder
-                      onRecordingComplete={handleRecordingComplete}
-                      isAnalyzing={isAnalyzing}
-                    />
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-
-          {/* Content based on sidebar selection */}
-          {aiOpen && (
-            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  <span>AI Analysis</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TextAnalytics onTranscriptGenerated={setTranscriptText} initialTranscript={transcriptText} />
-              </CardContent>
-            </Card>
-          )}
-
-          {historyOpen && (
-            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <History className="w-5 h-5 text-primary" />
-                  <span>Recording History</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="max-h-[600px] overflow-y-auto">
-                <RecordingHistory
-                  recordings={recordings}
-                  onPlay={handlePlayRecording}
-                  onDelete={handleDeleteRecording}
-                  onViewAnalysis={handleViewAnalysis}
-                  onReEvaluate={handleReEvaluate}
-                  isReEvaluating={isReEvaluating}
-                  isLoading={loadingRecordings}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {progressOpen && (
-            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                  <span>Progress Report</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ProgressReport recordings={recordings} />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Analysis Section */}
-          <Collapsible open={analysisOpen} onOpenChange={setAnalysisOpen}>
-            <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/10 transition-colors rounded-t-xl">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                      <span>Analyze Speech</span>
-                      {currentAnalysis && <div className="w-2 h-2 bg-primary rounded-full ml-2"></div>}
-                    </div>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${analysisOpen ? 'rotate-180' : ''}`} />
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  {isAnalyzing ? (
-                    <div className="text-center py-8">
-                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-                      <p className="text-muted-foreground">Analyzing speech with AssemblyAI...</p>
-                    </div>
-                  ) : analysisError ? (
-                    <div className="p-8 text-center">
-                      <span className="text-destructive font-semibold">{analysisError}</span>
-                    </div>
-                  ) : currentAnalysis ? (
-                    <div className="space-y-6">
-                      {/* Clean Transcript Display */}
-                      {currentAnalysis.transcript && (
-                        <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-                          <CardHeader>
-                            <CardTitle className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                                <MessageSquare className="h-5 w-5" />
-                                Speech Transcript
-                          </div>
-                              <Button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(currentAnalysis.transcript);
-                                  toast({
-                                    title: "Transcript copied!",
-                                    description: "Transcript copied to clipboard",
-                                  });
-                                }}
-                                variant="outline"
-                                size="sm"
-                                className="flex items-center space-x-2"
-                              >
-                                <Copy className="w-4 h-4" />
-                                <span>Copy</span>
-                              </Button>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="p-4 bg-muted/50 rounded-lg border">
-                              <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap">
-                                {currentAnalysis.transcript}
-                              </p>
-                        </div>
-                            <div className="flex justify-between items-center text-xs text-muted-foreground mt-3">
-                              <span>{currentAnalysis.transcript.split(' ').length} words</span>
-                              <span>{currentAnalysis.transcript.length} characters</span>
-                          </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                      
-                      {/* Use the comprehensive SpeechAnalysis component */}
-                      <SpeechAnalysis 
-                        analysis={currentAnalysis} 
-                        duration={currentDuration} 
-                      />
-                      {/* New Recording Button */}
-                      <div className="mt-6 pt-4 border-t">
-                        <Button 
-                          onClick={() => {
-                            setCurrentAnalysis(null);
-                            setCurrentAudioBlob(null);
-                            setTranscriptText('');
-                            setAnalysisOpen(false);
-                            setRecordOpen(true);
-                          }}
-                          variant="outline"
-                          className="w-full"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Start New Recording
-                        </Button>
-                        </div>
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center">
-                      <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-medium text-foreground mb-2">No Analysis Available</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Record or upload an audio file to see detailed speech analysis
-                      </p>
-                      <Button 
-                        onClick={() => {
-                          setRecordOpen(true);
-                          setAnalysisOpen(false);
-                        }}
-                        className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                      >
-                        Start Recording
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
           </div>
-        </div>
-      </main>
-        
-      <AppSidebar
-        onHistoryClick={() => {
-          setHistoryOpen(!historyOpen);
-          setProgressOpen(false);
-          setAnalysisOpen(false);
-          setAiOpen(false);
-        }}
-        onProgressClick={() => {
-          setProgressOpen(!progressOpen);
-          setHistoryOpen(false);
-          setAnalysisOpen(false);
-          setAiOpen(false);
-        }}
-        onAiClick={() => {
-          setAiOpen(!aiOpen);
-          setHistoryOpen(false);
-          setProgressOpen(false);
-          setAnalysisOpen(false);
-        }}
-        historyOpen={historyOpen}
-        progressOpen={progressOpen}
-        aiOpen={aiOpen}
-      />
-    </div>
-  </SidebarProvider>
+        </nav>
+        <main className="flex-1">
+          <div className="container mx-auto px-4 py-6 max-w-4xl">
+            {/* Recording Interface - show directly, no accordion or tips */}
+            <AudioRecorder
+              onRecordingComplete={handleRecordingComplete}
+              isAnalyzing={isAnalyzing}
+            />
+            {/* History Modal/Section */}
+            {historyOpen && (
+              <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)] mt-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <History className="w-5 h-5 text-primary" />
+                    <span>Recording History</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="max-h-[600px] overflow-y-auto">
+                  <RecordingHistory
+                    recordings={recordings}
+                    onPlay={handlePlayRecording}
+                    onDelete={handleDeleteRecording}
+                    onViewAnalysis={handleViewAnalysis}
+                    onReEvaluate={handleReEvaluate}
+                    isReEvaluating={isReEvaluating}
+                    isLoading={loadingRecordings}
+                  />
+                  <Button className="mt-4" variant="outline" onClick={() => setHistoryOpen(false)}>Close</Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </main>
+        <footer className="py-8 sm:py-12 bg-gray-900 mt-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div className="flex items-center justify-center space-x-2 text-gray-400 mb-3 sm:mb-4">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-700 rounded-full flex items-center justify-center">
+                <span className="text-xs">🔒</span>
+              </div>
+              <span className="text-xs sm:text-sm font-medium">Privacy-First: We never store your voice or data. All analysis is real-time and private.</span>
+            </div>
+            <p className="text-gray-500 text-xs sm:text-sm font-medium">© 2024 Milao. All rights reserved.</p>
+          </div>
+        </footer>
+      </div>
+    </SidebarProvider>
   );
 };
 

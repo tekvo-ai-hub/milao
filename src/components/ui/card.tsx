@@ -2,6 +2,15 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// Card component using design tokens and shadcn/ui patterns
+// Variants: default, shadow, gradient
+// Usage:
+//   <Card>Default Card</Card>
+//   <Card className="shadow-soft">Soft Shadow Card</Card>
+//   <Card className="bg-[var(--gradient-primary)] text-primary-foreground">Gradient Card</Card>
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -9,8 +18,9 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
+      // Default: bg-card, text-card-foreground, border, shadow-sm
       "rounded-lg border bg-card text-card-foreground shadow-sm",
-      className
+      className // Pass 'shadow-soft', 'shadow-strong', 'bg-[var(--gradient-primary)]', etc. as needed
     )}
     {...props}
   />

@@ -1,3 +1,4 @@
+// Select component using design tokens and shadcn/ui patterns
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown, ChevronUp } from "lucide-react"

@@ -48,14 +48,7 @@ const Landing = () => {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-            </div>
-            <span className="text-2xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
-              Orato
-            </span>
+              <img src="/milao_logo1.png" alt="Milao Logo" className="w-24 h-24 object-cover rounded-xl" />
             </div>
 
             {/* Navigation */}
@@ -97,7 +90,7 @@ const Landing = () => {
                   with AI
                 </h1>
                 <p className="text-lg lg:text-xl text-gray-600 leading-relaxed font-medium">
-                  Orato helps students and professionals enhance their speaking clarity, pace, and delivery — powered by real-time AI feedback.
+                  Milao helps students and professionals enhance their speaking clarity, pace, and delivery — powered by real-time AI feedback.
                 </p>
               </div>
               
@@ -272,7 +265,7 @@ const Landing = () => {
           
           <div className="text-center">
             <div className="inline-block bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-black text-lg sm:text-xl shadow-2xl">
-              = 338+ hours saved by using Orato's AI Speech Coach
+              = 338+ hours saved by using Milao's AI Speech Coach
             </div>
           </div>
         </div>
@@ -412,7 +405,7 @@ const Landing = () => {
           </div>
           
           <blockquote className="text-lg sm:text-xl text-gray-700 italic mb-4 sm:mb-6 font-semibold">
-            "Orato transformed my public speaking confidence. The AI feedback is incredibly accurate and actionable. 
+            "Milao transformed my public speaking confidence. The AI feedback is incredibly accurate and actionable. 
             I've improved my presentation skills dramatically in just a few weeks."
           </blockquote>
           
@@ -462,7 +455,7 @@ const Landing = () => {
             </div>
             <span className="text-xs sm:text-sm font-medium">Privacy-First: We never store your voice or data. All analysis is real-time and private.</span>
           </div>
-          <p className="text-gray-500 text-xs sm:text-sm font-medium">© 2024 Orato. All rights reserved.</p>
+          <p className="text-gray-500 text-xs sm:text-sm font-medium">© 2024 Milao. All rights reserved.</p>
         </div>
       </footer>
     </div>

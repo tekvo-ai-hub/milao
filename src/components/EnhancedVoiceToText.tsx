@@ -5,22 +5,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { AudioWaveform, Copy, Check, Loader2, Cloud, Cpu, Settings } from 'lucide-react';
 import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
-import { analyzeAudioWithAssemblyAIDirect } from '@/utils/directAssemblyAIService';
-import { VoiceRecorder } from './VoiceRecorder';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 interface VoiceToTextProps {
   onTranscriptGenerated?: (transcript: string) => void;
 }
 
-type AnalysisMode = 'supabase' | 'direct';
-
 export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGenerated }) => {
   const [transcript, setTranscript] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('direct');
   const [analysis, setAnalysis] = useState<any>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -28,55 +23,24 @@ export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGe
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsTranscribing(true);
     try {
-      let result;
-      
-      if (analysisMode === 'direct') {
-        console.log('🎯 Using direct AssemblyAI API...');
-        result = await analyzeAudioWithAssemblyAIDirect(audioBlob);
-      } else {
-        console.log('🎯 Using Supabase Edge Function...');
-        result = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
+      if (!user) {
+        toast({ title: 'Sign in required', description: 'Please sign in to analyze audio.', variant: 'destructive' });
+        return;
       }
-      
+      const result = await analyzeAudioWithAssemblyAI(audioBlob, user.id);
       setTranscript(result.transcript);
       setAnalysis(result);
       onTranscriptGenerated?.(result.transcript);
-      
       toast({
-        title: "Analysis Complete",
-        description: `AssemblyAI analysis done via ${analysisMode === 'direct' ? 'Direct API' : 'Supabase'}`,
+        title: 'Analysis Complete',
+        description: 'Analysis done via Edge Function',
       });
     } catch (error) {
-      console.error('AssemblyAI analysis failed:', error);
-      
-      // Try fallback to other mode if one fails
-      if (analysisMode === 'direct') {
-        try {
-          console.log('🔄 Trying Supabase fallback...');
-          const fallbackResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
-          setTranscript(fallbackResult.transcript);
-          setAnalysis(fallbackResult);
-          onTranscriptGenerated?.(fallbackResult.transcript);
-          setAnalysisMode('supabase');
-          
-          toast({
-            title: "Analysis Complete (Fallback)",
-            description: "Used Supabase Edge Function as fallback",
-          });
-        } catch (fallbackError) {
-          toast({
-            title: "Analysis Failed",
-            description: "Both direct API and Supabase failed",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Analysis Failed",
-          description: error instanceof Error ? error.message : 'Unknown error occurred',
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: 'Analysis Failed',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: 'destructive',
+      });
     } finally {
       setIsTranscribing(false);
     }
@@ -88,10 +52,6 @@ export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGe
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  };
-
-  const toggleAnalysisMode = () => {
-    setAnalysisMode(prev => prev === 'direct' ? 'supabase' : 'direct');
   };
 
   return (
@@ -112,10 +72,10 @@ export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGe
             <Button
               variant="outline"
               size="sm"
-              onClick={toggleAnalysisMode}
+              onClick={() => {}}
               className="flex items-center space-x-2"
             >
-              {analysisMode === 'direct' ? (
+              {/* analysisMode === 'direct' ? (
                 <>
                   <Cpu className="w-4 h-4" />
                   <span>Direct API</span>
@@ -125,17 +85,19 @@ export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGe
                   <Cloud className="w-4 h-4" />
                   <span>Supabase</span>
                 </>
-              )}
+              ) */}
+              <Cloud className="w-4 h-4" />
+              <span>Supabase</span>
             </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Voice Recorder */}
-      <VoiceRecorder 
+      {/* <VoiceRecorder 
         onRecordingComplete={handleRecordingComplete}
         onTranscriptGenerated={onTranscriptGenerated}
-      />
+      /> */}
 
       {/* Transcription Result */}
       {(transcript || isTranscribing) && (
@@ -154,7 +116,7 @@ export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGe
                   </Badge>
                 )}
                 <Badge variant="outline">
-                  {analysisMode === 'direct' ? 'Direct API' : 'Supabase'}
+                  Supabase Edge Function
                 </Badge>
               </div>
             </CardTitle>
@@ -162,13 +124,9 @@ export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGe
           <CardContent className="space-y-4">
             {isTranscribing ? (
               <div className="text-center py-8">
-                {analysisMode === 'direct' ? (
-                  <Cpu className="w-8 h-8 animate-pulse mx-auto mb-4 text-primary" />
-                ) : (
-                  <Cloud className="w-8 h-8 animate-pulse mx-auto mb-4 text-primary" />
-                )}
+                <Cloud className="w-8 h-8 animate-pulse mx-auto mb-4 text-primary" />
                 <p className="text-muted-foreground">
-                  Analyzing speech with AssemblyAI...
+                  Orato is eavesdropping on your brilliance...
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
                   Getting transcription, sentiment analysis, and speech insights
@@ -270,20 +228,13 @@ export const EnhancedVoiceToText: React.FC<VoiceToTextProps> = ({ onTranscriptGe
       <Card className="border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
         <CardContent className="py-4">
           <div className="flex items-center space-x-3">
-            {analysisMode === 'direct' ? (
-              <Cpu className="w-5 h-5 text-green-500" />
-            ) : (
-              <Cloud className="w-5 h-5 text-blue-500" />
-            )}
+            <Cloud className="w-5 h-5 text-blue-500" />
             <div>
               <p className="text-sm font-medium">
-                {analysisMode === 'direct' ? 'Direct AssemblyAI API' : 'Supabase Edge Function'}
+                Supabase Edge Function
               </p>
               <p className="text-xs text-muted-foreground">
-                {analysisMode === 'direct' 
-                  ? 'Direct API calls for faster processing' 
-                  : 'Secure processing through Supabase Edge Functions'
-                }
+                Secure processing through Supabase Edge Functions
               </p>
             </div>
           </div>

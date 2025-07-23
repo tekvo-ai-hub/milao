@@ -1,3 +1,13 @@
+// Badge component using design tokens and shadcn/ui patterns
+// Variants: default, secondary, destructive, outline
+// Usage:
+//   <Badge>Default</Badge>
+//   <Badge variant="secondary">Secondary</Badge>
+//   <Badge variant="destructive">Destructive</Badge>
+//   <Badge variant="outline">Outline</Badge>
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 

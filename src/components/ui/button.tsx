@@ -1,3 +1,11 @@
+// Button component using design tokens and shadcn/ui patterns
+// Variants: default, destructive, outline, secondary, ghost, link, shadow, gradient
+// Usage:
+//   <Button variant="gradient" size="lg">Gradient Button</Button>
+//   <Button variant="shadow">Shadow Button</Button>
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -18,6 +26,9 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Advanced variants using tokens
+        shadow: "bg-primary text-primary-foreground shadow-soft hover:shadow-strong",
+        gradient: "bg-[var(--gradient-primary)] text-primary-foreground border-0 shadow-glow hover:opacity-90",
       },
       size: {
         default: "h-10 px-4 py-2",

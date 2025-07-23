@@ -1,3 +1,9 @@
+// Textarea component using design tokens and shadcn/ui patterns
+// Usage:
+//   <Textarea placeholder="Type your message..." />
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"

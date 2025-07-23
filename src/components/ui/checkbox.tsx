@@ -1,3 +1,9 @@
+// Checkbox component using design tokens and shadcn/ui patterns
+// Usage:
+//   <Checkbox checked={checked} onCheckedChange={setChecked} />
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 import * as React from "react"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { Check } from "lucide-react"

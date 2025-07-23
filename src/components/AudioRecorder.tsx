@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Play, Pause, Square, Trash } from 'lucide-react';
+import { Mic, MicOff, Play, Pause, Square, Trash, Headphones, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
@@ -414,234 +415,236 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   };
 
   return (
-    <Card className="w-full border-0 shadow-[var(--shadow-soft)] backdrop-blur-md bg-[var(--glass-bg)]">
-      <CardContent className="p-8">
-        <div className="flex flex-col items-center space-y-8">
-          {/* Error Display */}
-          {error && (
-            <div className="w-full p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <div className="text-destructive text-sm font-medium">{error}</div>
-              <div className="text-destructive/70 text-xs mt-1">
-                {error.includes('permission') && 'Please check your browser settings and allow microphone access.'}
-                {error.includes('not supported') && 'Try using a different browser like Chrome or Safari.'}
-                {error.includes('HTTPS') && 'Please access this app via HTTPS for mobile recording.'}
-              </div>
-              <Button
-                onClick={() => setError('')}
-                variant="outline"
-                size="sm"
-                className="mt-2 text-destructive border-destructive/20 hover:bg-destructive/10"
-              >
-                Try Again
-              </Button>
-            </div>
-          )}
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Record Your Speech</h2>
+        <p className="text-neutral-600">Click the record button when you're ready to begin. Speak clearly and naturally.</p>
+      </div>
 
-          {/* Modern Recording Visualization */}
-          <div className="w-full h-32 bg-gradient-to-r from-muted/50 to-accent/50 rounded-2xl border border-[var(--glass-border)] flex items-center justify-center relative overflow-hidden">
-            {isRecording || isPaused ? (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-primary/10" />
-                <div className="flex items-center space-x-1 z-10">
-                  {audioLevels.map((level, index) => (
-                    <div
-                      key={index}
-                      className="bg-gradient-to-t from-primary to-primary/70 rounded-full transition-all duration-150"
-                      style={{
-                        width: '4px',
-                        height: `${Math.max(8, (level / 255) * 80)}px`,
-                        opacity: isPaused ? 0.3 : 1,
-                      }}
-                    />
-                  ))}
-                </div>
-                {isPaused && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-                    <span className="text-muted-foreground font-medium">Recording Paused</span>
-                  </div>
+      {/* Recording Interface */}
+      <Card className="bg-white rounded-lg shadow-xl border border-neutral-200 p-0">
+        <CardContent className="p-8">
+          <div className="flex flex-col items-center">
+            {/* Mic Icon and Status */}
+            <div className="mb-6">
+              <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
+                {isRecording && (
+                  <span className="absolute w-full h-full rounded-full animate-mic-glow bg-gradient-to-br from-primary/30 via-primary/10 to-primary/0 blur-lg z-0" />
                 )}
-              </>
-            ) : audioBlob ? (
-              <div className="text-center">
-                <div className="text-foreground/70 font-medium mb-2">Recording Ready</div>
-                <div className="text-sm text-muted-foreground">Duration: {formatTime(duration)}</div>
+                <span className={`inline-flex items-center justify-center w-32 h-32 bg-neutral-100 rounded-full z-10 ${isRecording ? 'animate-mic-pulse' : ''}`}>
+                  <Mic className={`text-4xl ${isRecording ? 'text-primary drop-shadow-lg' : 'text-neutral-600'}`} />
+                </span>
               </div>
-            ) : (
-              <div className="text-center">
-                <div className="text-foreground/70 font-medium mb-2">Ready to Record</div>
-                <div className="text-sm text-muted-foreground">
-                  {isMobile ? 'Tap the microphone to start' : 'Click the microphone to start'}
-                </div>
+              <div className="text-sm text-neutral-500 mb-2">Recording Status</div>
+              <div className="text-lg text-black">
+                {error
+                  ? <span className="text-red-500">{error}</span>
+                  : isRecording
+                    ? isPaused ? 'Paused' : 'Recording...'
+                    : audioBlob ? 'Recording Ready' : 'Ready to Record'}
               </div>
-            )}
-          </div>
-
-          {/* Time Display and Progress */}
-          <div className="text-center space-y-4 w-full">
-            <div className="text-4xl font-mono text-foreground font-light">
-              {audioBlob && isPlaying 
-                ? formatTime(currentPlayTime)
-                : formatTime(isRecording || isPaused ? recordingTime : duration)
-              }
             </div>
-            
-            {/* Recording Progress */}
-            {(isRecording || isPaused) && (
-              <div className="space-y-2">
-                <Progress 
-                  value={(recordingTime / MAX_RECORDING_TIME) * 100} 
-                  className="w-full h-2"
-                />
-                <div className="text-sm text-muted-foreground">
-                  {formatTime(MAX_RECORDING_TIME - recordingTime)} remaining
-                </div>
-              </div>
-            )}
-            
-            {/* Playback Progress */}
-            {audioBlob && totalAudioDuration > 0 && (
-              <div className="space-y-2">
-                <Progress 
-                  value={(currentPlayTime / totalAudioDuration) * 100} 
-                  className="w-full h-2"
-                />
-                <div className="text-sm text-muted-foreground">
-                  {formatTime(currentPlayTime)} / {formatTime(totalAudioDuration)}
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Enhanced Control Buttons */}
-          <div className="flex items-center space-x-4">
-            {!audioBlob ? (
-              <>
-                {/* Recording Controls */}
-                {!isRecording ? (
+            {/* Timer */}
+            <div className="mb-8">
+              <div className="text-4xl text-black mb-2 font-mono">
+                {audioBlob && isPlaying
+                  ? formatTime(currentPlayTime)
+                  : formatTime(isRecording || isPaused ? recordingTime : duration)}
+              </div>
+              <div className="text-sm text-neutral-500">Duration</div>
+            </div>
+
+            {/* Record/Playback Button */}
+            <div className="mb-8">
+              {!audioBlob ? (
+                <Button
+                  onClick={isRecording ? stopRecording : startRecording}
+                  size="icon"
+                  className={`bg-neutral-500 hover:bg-primary text-white rounded-full w-20 h-20 flex items-center justify-center mx-auto transition-colors ${isRecording ? 'bg-primary shadow-[0_0_0_8px_rgba(139,92,246,0.15),0_0_0_16px_rgba(139,92,246,0.08)] animate-mic-pulse' : ''}`}
+                  disabled={isAnalyzing}
+                >
+                  {isRecording ? (
+                    <Square className="text-2xl" />
+                  ) : (
+                    <Mic className="text-2xl" />
+                  )}
+                </Button>
+              ) : (
+                <div className="flex items-center gap-4">
                   <Button
-                    onClick={startRecording}
-                    onTouchStart={(e) => {
-                      // Prevent double-tap zoom on mobile
-                      e.preventDefault();
-                    }}
-                    size="lg"
-                    className="w-20 h-20 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-[var(--shadow-glow)] border-0 touch-manipulation"
+                    onClick={isPlaying ? pauseAudio : playAudio}
+                    size="icon"
+                    variant="outline"
+                    className="w-16 h-16 rounded-full border-2 hover:bg-accent"
                     disabled={isAnalyzing}
                   >
-                    <Mic className="w-8 h-8" />
+                    {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                   </Button>
-                ) : (
-                  <>
-                    {!isPaused ? (
-                      <Button
-                        onClick={pauseRecording}
-                        size="lg"
-                        variant="outline"
-                        className="w-16 h-16 rounded-full border-2 hover:bg-accent"
-                        disabled={isAnalyzing}
-                      >
-                        <Pause className="w-6 h-6" />
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={resumeRecording}
-                        size="lg"
-                        className="w-16 h-16 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                        disabled={isAnalyzing}
-                      >
-                        <Mic className="w-6 h-6" />
-                      </Button>
-                    )}
-                    <Button
-                      onClick={stopRecording}
-                      size="lg"
-                      variant="outline"
-                      className="w-20 h-20 rounded-full border-2 text-destructive hover:bg-destructive/10 hover:border-destructive"
-                      disabled={isAnalyzing}
-                    >
-                      <Square className="w-8 h-8 fill-current" />
-                    </Button>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                {/* Playback Controls */}
-                <Button
-                  onClick={isPlaying ? pauseAudio : playAudio}
-                  size="lg"
-                  variant="outline"
-                  className="w-16 h-16 rounded-full border-2 hover:bg-accent"
-                  disabled={isAnalyzing}
-                >
-                  {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
-                </Button>
-                <Button
-                  onClick={stopAudio}
-                  size="lg"
-                  variant="outline"
-                  className="w-16 h-16 rounded-full border-2 hover:bg-accent"
-                  disabled={isAnalyzing}
-                >
-                  <Square className="w-6 h-6 fill-current" />
-                </Button>
-                <Button
-                  onClick={clearRecording}
-                  size="lg"
-                  variant="outline"
-                  className="w-16 h-16 rounded-full border-2 text-destructive hover:bg-destructive/10 hover:border-destructive"
-                  disabled={isAnalyzing}
-                >
-                  <Trash className="w-6 h-6" />
-                </Button>
-              </>
-            )}
-          </div>
-
-          {/* Enhanced Analyze Button */}
-          {audioBlob && (
-            <Button
-              onClick={analyzeRecording}
-              className="w-full h-14 text-lg font-medium bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-[var(--shadow-strong)] border-0 rounded-xl"
-              disabled={isAnalyzing}
-            >
-              {isAnalyzing ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin" />
-                  <span>Analyzing Speech...</span>
+                  <Button
+                    onClick={stopAudio}
+                    size="icon"
+                    variant="outline"
+                    className="w-16 h-16 rounded-full border-2 hover:bg-accent"
+                    disabled={isAnalyzing}
+                  >
+                    <Square className="w-6 h-6" />
+                  </Button>
+                  <Button
+                    onClick={clearRecording}
+                    size="icon"
+                    variant="outline"
+                    className="w-16 h-16 rounded-full border-2 text-destructive hover:bg-destructive/10 hover:border-destructive"
+                    disabled={isAnalyzing}
+                  >
+                    <Trash className="w-6 h-6" />
+                  </Button>
                 </div>
-              ) : (
-                'Analyze Speech'
               )}
-            </Button>
-          )}
+            </div>
 
-          {/* Hidden Audio Element */}
-          {audioUrl && (
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              onEnded={() => {
-                setIsPlaying(false);
-                setCurrentPlayTime(0);
-                if (playProgressRef.current) {
-                  clearInterval(playProgressRef.current);
-                }
-              }}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onLoadedMetadata={() => {
-                if (audioRef.current) {
-                  setTotalAudioDuration(audioRef.current.duration);
-                }
-              }}
-              style={{ display: 'none' }}
-            />
-          )}
+            {/* Analyze Button */}
+            {audioBlob && (
+              <Button
+                onClick={analyzeRecording}
+                className="w-full h-14 text-lg font-medium bg-gradient-to-r from-primary to-secondary text-white shadow-md border-0 rounded-xl hover:from-primary/90 hover:to-secondary/90 transition-colors"
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 border-2 border-primary-foreground/20 border-t-primary-foreground rounded-full animate-spin" />
+                    <span>Analyzing Speech...</span>
+                  </div>
+                ) : (
+                  'Analyze Speech'
+                )}
+              </Button>
+            )}
+
+            {/* Hidden Audio Element */}
+            {audioUrl && (
+              <audio
+                ref={audioRef}
+                src={audioUrl}
+                onEnded={() => {
+                  setIsPlaying(false);
+                  setCurrentPlayTime(0);
+                  if (playProgressRef.current) {
+                    clearInterval(playProgressRef.current);
+                  }
+                }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onLoadedMetadata={() => {
+                  if (audioRef.current) {
+                    setTotalAudioDuration(audioRef.current.duration);
+                  }
+                }}
+                style={{ display: 'none' }}
+              />
+            )}
+
+            {/* Mic Level, Audio Quality, Monitor */}
+            <div className="border-t border-neutral-200 pt-6 w-full mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <div className="flex items-center justify-center w-12 h-12 bg-neutral-100 rounded-lg mx-auto mb-3">
+                    <Mic className="text-neutral-600" />
+                  </div>
+                  <div className="text-sm text-black">Microphone Level</div>
+                  <div className="w-full bg-neutral-200 rounded-full h-2 mt-2 overflow-hidden">
+                    <div className={`bg-primary h-2 rounded-full transition-all duration-200 ${isRecording ? 'animate-mic-level' : ''}`}
+                      style={{ width: `${Math.min(100, (audioLevels[audioLevels.length - 1] || 0) / 2.55)}%` }}></div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center w-12 h-12 bg-neutral-100 rounded-lg mx-auto mb-3">
+                    <Square className="text-neutral-600" />
+                  </div>
+                  <div className="text-sm text-black">Audio Quality</div>
+                  <div className="text-xs text-neutral-600 mt-1">
+                    {isRecording
+                      ? (audioLevels[audioLevels.length - 1] > 120 ? 'Excellent' : audioLevels[audioLevels.length - 1] > 60 ? 'Good' : 'Poor')
+                      : '—'}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center w-12 h-12 bg-neutral-100 rounded-lg mx-auto mb-3">
+                    <Headphones className="text-neutral-600" />
+                  </div>
+                  <div className="text-sm text-black">Monitor</div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="text-xs text-neutral-400 cursor-not-allowed mt-1 border border-neutral-200 rounded px-2 py-1 bg-neutral-100" disabled>Enable</button>
+                    </TooltipTrigger>
+                    <TooltipContent>Live monitoring coming soon!</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tips Section */}
+      <div className="mt-8 bg-neutral-50 rounded-lg p-6">
+        <h3 className="text-lg text-black mb-4">Recording Tips</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+              <Check className="text-xs text-neutral-600" />
+            </div>
+            <div>
+              <div className="text-sm text-black">Speak Naturally</div>
+              <div className="text-xs text-neutral-600">Use your normal speaking voice and pace</div>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+              <Check className="text-xs text-neutral-600" />
+            </div>
+            <div>
+              <div className="text-sm text-black">Minimize Background Noise</div>
+              <div className="text-xs text-neutral-600">Find a quiet space for better analysis</div>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+              <Check className="text-xs text-neutral-600" />
+            </div>
+            <div>
+              <div className="text-sm text-black">Stay 6-12 Inches from Mic</div>
+              <div className="text-xs text-neutral-600">Maintain consistent distance</div>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+              <Check className="text-xs text-neutral-600" />
+            </div>
+            <div>
+              <div className="text-sm text-black">Speak for 1-5 Minutes</div>
+              <div className="text-xs text-neutral-600">Optimal length for analysis</div>
+            </div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
 export default AudioRecorder;
+
+// Add custom keyframes for the mic glow and pulse
+<style>{`
+@keyframes mic-glow {
+  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 0 rgba(139,92,246,0.15), 0 0 0 8px rgba(139,92,246,0.08); }
+  50% { opacity: 1; box-shadow: 0 0 0 8px rgba(139,92,246,0.25), 0 0 0 16px rgba(139,92,246,0.12); }
+}
+@keyframes mic-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.animate-mic-glow { animation: mic-glow 1.5s infinite; }
+.animate-mic-pulse { animation: mic-pulse 1.2s infinite; }
+`}</style>

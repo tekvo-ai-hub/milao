@@ -1,3 +1,16 @@
+// Tabs component using design tokens and shadcn/ui patterns
+// Usage:
+//   <Tabs defaultValue="tab1">
+//     <TabsList>
+//       <TabsTrigger value="tab1">Tab 1</TabsTrigger>
+//       <TabsTrigger value="tab2">Tab 2</TabsTrigger>
+//     </TabsList>
+//     <TabsContent value="tab1">Content 1</TabsContent>
+//     <TabsContent value="tab2">Content 2</TabsContent>
+//   </Tabs>
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 

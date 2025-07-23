@@ -10,6 +10,8 @@ import Auth from "./components/Auth";
 import NotFound from "./pages/NotFound";
 import UserPreferences from "./pages/UserPreferences";
 import AdminDashboard from "./pages/AdminDashboard";
+import SpeechAnalysisResultsDashboard from './pages/SpeechAnalysisResultsDashboard';
+import History from "./pages/History";
 
 const queryClient = new QueryClient();
 
@@ -30,11 +32,15 @@ const App = () => (
             {/* Main app */}
             <Route path="/app" element={<Index />} />
             
+            {/* History page */}
+            <Route path="/history" element={<History />} />
+            
             {/* Existing routes */}
             <Route path="/preferences" element={<UserPreferences />} />
             <Route path="/admin" element={<AdminDashboard />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/analysis-result" element={<SpeechAnalysisResultsDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { AudioWaveform, Copy, Check, Loader2, Cloud } from 'lucide-react';
-import { analyzeAudioWithAssemblyAIDirect } from '@/utils/directAssemblyAIService';
+import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
+import { useAuth } from '@/hooks/useAuth';
 import { VoiceRecorder } from './VoiceRecorder';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,23 +15,28 @@ export const AssemblyAITest: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     setIsTranscribing(true);
     try {
-      const result = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+      if (!user) {
+        toast({ title: 'Sign in required', description: 'Please sign in to analyze audio.', variant: 'destructive' });
+        return;
+      }
+      const result = await analyzeAudioWithAssemblyAI(audioBlob, user.id);
       setTranscript(result.transcript);
       setAnalysis(result);
       toast({
-        title: "AssemblyAI Analysis Complete",
-        description: "Direct API analysis completed successfully",
+        title: 'AssemblyAI Analysis Complete',
+        description: 'Analysis completed via Edge Function',
       });
     } catch (error) {
       console.error('AssemblyAI analysis failed:', error);
       toast({
-        title: "Analysis Failed",
+        title: 'Analysis Failed',
         description: error instanceof Error ? error.message : 'Unknown error occurred',
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setIsTranscribing(false);

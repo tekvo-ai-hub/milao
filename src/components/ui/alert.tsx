@@ -1,3 +1,11 @@
+// Alert component using design tokens and shadcn/ui patterns
+// Variants: default, destructive
+// Usage:
+//   <Alert variant="default">Info alert</Alert>
+//   <Alert variant="destructive">Error alert</Alert>
+//
+// All colors, backgrounds, and borders use Tailwind classes mapped to CSS variables (see tailwind.config.ts)
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
