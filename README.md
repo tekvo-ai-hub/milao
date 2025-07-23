@@ -2,6 +2,8 @@
 
 Milao is a modern, privacy-first AI-powered speech analysis platform. Record or upload your speech, get instant feedback, track your progress, and improve your communication skills with real AssemblyAI insights.
 
+🌐 **Live App:** [https://milao-tekvo.vercel.app/](https://milao-tekvo.vercel.app/)
+
 ---
 
 ## 🚀 Features
