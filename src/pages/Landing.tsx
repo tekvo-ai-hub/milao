@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Landing = () => {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = React.useState(false);
 
   const handleGetStarted = () => {
     navigate('/auth');
@@ -44,15 +45,16 @@ const Landing = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 font-sans antialiased">
       {/* Navigation Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
+            {/* Logo - always left */}
             <div className="flex items-center space-x-3">
-              <img src="/milao_logo1.png" alt="Milao Logo" className="w-24 h-24 object-cover rounded-xl" />
+              <button onClick={() => navigate('/')} className="focus:outline-none">
+                <img src="/milao_logo1.png" alt="Milao Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-white rounded-lg p-1" />
+              </button>
             </div>
-
-            {/* Navigation */}
-            <div className="flex items-center space-x-4">
+            {/* Desktop Nav */}
+            <div className="hidden sm:flex items-center space-x-4">
               <Button 
                 onClick={handleContactUs}
                 variant="outline" 
@@ -71,30 +73,48 @@ const Landing = () => {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
+            {/* Mobile Burger */}
+            <div className="sm:hidden flex items-center">
+              <button
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:bg-gray-200 focus:outline-none"
+                aria-label="Open menu"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className="absolute top-16 right-2 w-48 bg-white rounded-xl shadow-lg border z-50 flex flex-col gap-1 py-2 animate-fade-in">
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 px-2 py-2" onClick={() => {handleContactUs(); setMenuOpen(false);}}><Mail className="w-4 h-4 mr-2" />Contact Us</Button>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 px-2 py-2" onClick={() => {handleGetStarted(); setMenuOpen(false);}}>Try the App Now<ArrowRight className="w-4 h-4 ml-2" /></Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+      <section className="relative overflow-hidden pt-24 sm:pt-20">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-8 sm:py-16 lg:py-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             {/* Left Content */}
-            <div className="space-y-6 sm:space-y-8">
+            <div className="space-y-4 sm:space-y-6">
               <div className="space-y-4 sm:space-y-6">
-                <h1 className="text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight">
                   Train Your Speech{' '}
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">
                     10X Faster
                   </span>{' '}
                   with AI
                 </h1>
-                <p className="text-lg lg:text-xl text-gray-600 leading-relaxed font-medium">
+                <p className="text-base sm:text-lg lg:text-xl text-gray-600 leading-relaxed font-medium">
                   Milao helps students and professionals enhance their speaking clarity, pace, and delivery — powered by real-time AI feedback.
                 </p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
                 <Button 
                   onClick={handleGetStarted}
                   size="lg" 

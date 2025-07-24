@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Play, Pause, Square, Trash, Headphones, Check } from 'lucide-react';
+import { Mic, MicOff, Play, Pause, Square, Trash, Headphones, Check, Info, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
 
 interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
@@ -24,6 +25,10 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   const [error, setError] = useState<string>('');
   const [isMobile, setIsMobile] = useState(false);
   const MAX_RECORDING_TIME = 300; // 5 minutes in seconds
+  const [status, setStatus] = useState<'idle' | 'recording' | 'paused' | 'stopped' | 'analyzing' | 'complete'>('idle');
+  const [showSettings, setShowSettings] = useState(false);
+  const [speechTopic, setSpeechTopic] = useState('');
+  const [focusArea, setFocusArea] = useState('Overall Performance');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -78,6 +83,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
       }
     };
   }, []);
+
+  // Update status based on recording state
+  useEffect(() => {
+    if (isAnalyzing) setStatus('analyzing');
+    else if (isRecording) setStatus('recording');
+    else if (isPaused) setStatus('paused');
+    else if (audioBlob) setStatus('stopped');
+    else setStatus('idle');
+  }, [isAnalyzing, isRecording, isPaused, audioBlob]);
 
   // Check if MediaRecorder is supported
   const isMediaRecorderSupported = () => {
@@ -415,100 +429,118 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Record Your Speech</h2>
-        <p className="text-neutral-600">Click the record button when you're ready to begin. Speak clearly and naturally.</p>
+      <div className="text-center mb-4">
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">Record Your Speech</h2>
+        <p className="text-neutral-600 text-sm">Click the record button when you're ready to begin. Speak clearly and naturally.</p>
       </div>
 
       {/* Recording Interface */}
       <Card className="bg-white rounded-lg shadow-xl border border-neutral-200 p-0">
-        <CardContent className="p-8">
+        <CardContent className="p-4">
           <div className="flex flex-col items-center">
-            {/* Mic Icon and Status */}
-            <div className="mb-6">
-              <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
-                {isRecording && (
-                  <span className="absolute w-full h-full rounded-full animate-mic-glow bg-gradient-to-br from-primary/30 via-primary/10 to-primary/0 blur-lg z-0" />
-                )}
-                <span className={`inline-flex items-center justify-center w-32 h-32 bg-neutral-100 rounded-full z-10 ${isRecording ? 'animate-mic-pulse' : ''}`}>
-                  <Mic className={`text-4xl ${isRecording ? 'text-primary drop-shadow-lg' : 'text-neutral-600'}`} />
-                </span>
-              </div>
-              <div className="text-sm text-neutral-500 mb-2">Recording Status</div>
-              <div className="text-lg text-black">
+            {/* Mic Icon - large, centered above status/timer */}
+            <div className="flex justify-center mt-6 mb-2 relative">
+              {isRecording && (
+                <span className="absolute w-20 h-20 rounded-full animate-mic-glow bg-gradient-to-br from-primary/40 via-primary/10 to-primary/0 blur-lg z-0" style={{ left: 0, top: 0 }} />
+              )}
+              <Button
+                onClick={isRecording ? stopRecording : startRecording}
+                size="icon"
+                className={`bg-neutral-500 hover:bg-primary text-white rounded-full w-20 h-20 flex items-center justify-center mx-auto transition-colors text-4xl relative z-10 ${isRecording ? 'bg-primary animate-mic-pulse' : ''}`}
+                disabled={isAnalyzing}
+                aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
+              >
+                {isRecording ? <Square className="text-4xl" /> : <Mic className="text-4xl" />}
+              </Button>
+            </div>
+            {/* Status, Timer, Duration - center aligned */}
+            <div className="mb-1 text-center">
+              <div className="text-xs text-neutral-500 mb-1">Recording Status</div>
+              <div className="text-base text-black mb-1" aria-live="polite">
                 {error
                   ? <span className="text-red-500">{error}</span>
                   : isRecording
                     ? isPaused ? 'Paused' : 'Recording...'
                     : audioBlob ? 'Recording Ready' : 'Ready to Record'}
               </div>
-            </div>
-
-            {/* Timer */}
-            <div className="mb-8">
-              <div className="text-4xl text-black mb-2 font-mono">
+              <div className="text-2xl text-black mb-1 font-mono">
                 {audioBlob && isPlaying
                   ? formatTime(currentPlayTime)
                   : formatTime(isRecording || isPaused ? recordingTime : duration)}
               </div>
-              <div className="text-sm text-neutral-500">Duration</div>
+              <div className="text-xs text-neutral-500">Duration</div>
             </div>
 
-            {/* Record/Playback Button */}
-            <div className="mb-8">
-              {!audioBlob ? (
-                <Button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  size="icon"
-                  className={`bg-neutral-500 hover:bg-primary text-white rounded-full w-20 h-20 flex items-center justify-center mx-auto transition-colors ${isRecording ? 'bg-primary shadow-[0_0_0_8px_rgba(139,92,246,0.15),0_0_0_16px_rgba(139,92,246,0.08)] animate-mic-pulse' : ''}`}
-                  disabled={isAnalyzing}
-                >
-                  {isRecording ? (
-                    <Square className="text-2xl" />
-                  ) : (
-                    <Mic className="text-2xl" />
-                  )}
-                </Button>
-              ) : (
-                <div className="flex items-center gap-4">
-                  <Button
-                    onClick={isPlaying ? pauseAudio : playAudio}
-                    size="icon"
-                    variant="outline"
-                    className="w-16 h-16 rounded-full border-2 hover:bg-accent"
-                    disabled={isAnalyzing}
-                  >
-                    {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
-                  </Button>
-                  <Button
-                    onClick={stopAudio}
-                    size="icon"
-                    variant="outline"
-                    className="w-16 h-16 rounded-full border-2 hover:bg-accent"
-                    disabled={isAnalyzing}
-                  >
-                    <Square className="w-6 h-6" />
-                  </Button>
-                  <Button
-                    onClick={clearRecording}
-                    size="icon"
-                    variant="outline"
-                    className="w-16 h-16 rounded-full border-2 text-destructive hover:bg-destructive/10 hover:border-destructive"
-                    disabled={isAnalyzing}
-                  >
-                    <Trash className="w-6 h-6" />
-                  </Button>
-                </div>
-              )}
+            {/* Waveform Animation */}
+            <div className="flex items-end justify-center gap-0.5 h-6 mb-4">
+              {audioLevels.slice(-32).map((level, i) => (
+                <div
+                  key={i}
+                  className="w-1 rounded bg-primary transition-all duration-100"
+                  style={{ height: `${Math.max(4, (level / 2.55) || 4)}%`, minHeight: 4, maxHeight: 24 }}
+                />
+              ))}
+            </div>
+
+            {/* File Upload Option */}
+            <div className="flex justify-center mb-2">
+              <label htmlFor="audio-upload" className="inline-block cursor-pointer bg-accent text-accent-foreground px-4 py-2 rounded-lg font-medium text-sm shadow hover:bg-accent/80 transition-colors">
+                Upload Audio File
+                <Input id="audio-upload" type="file" accept="audio/*" className="hidden" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Get duration
+                    const audio = document.createElement('audio');
+                    audio.src = URL.createObjectURL(file);
+                    audio.onloadedmetadata = () => {
+                      setAudioBlob(file);
+                      setDuration(Math.floor(audio.duration));
+                    };
+                  }
+                }} />
+              </label>
+            </div>
+            {/* Record/Playback/Stop/Clear Buttons - horizontal row at bottom with small mic */}
+            <div className="flex items-center gap-3 mt-0 mb-4">
+              <Button
+                onClick={isPlaying ? pauseAudio : playAudio}
+                size="icon"
+                variant="outline"
+                className="w-12 h-12 rounded-full border-2 hover:bg-accent"
+                disabled={!audioBlob || isAnalyzing}
+                aria-label={isPlaying ? 'Pause Playback' : 'Play Recording'}
+              >
+                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+              </Button>
+              <Button
+                onClick={stopAudio}
+                size="icon"
+                variant="outline"
+                className="w-12 h-12 rounded-full border-2 hover:bg-accent"
+                disabled={!audioBlob || isAnalyzing}
+                aria-label="Stop Playback"
+              >
+                <Square className="w-5 h-5" />
+              </Button>
+              <Button
+                onClick={clearRecording}
+                size="icon"
+                variant="outline"
+                className="w-12 h-12 rounded-full border-2 text-destructive hover:bg-destructive/10 hover:border-destructive"
+                disabled={isAnalyzing}
+                aria-label="Clear Recording"
+              >
+                <Trash className="w-5 h-5" />
+              </Button>
             </div>
 
             {/* Analyze Button */}
             {audioBlob && (
               <Button
                 onClick={analyzeRecording}
-                className="w-full h-14 text-lg font-medium bg-gradient-to-r from-primary to-secondary text-white shadow-md border-0 rounded-xl hover:from-primary/90 hover:to-secondary/90 transition-colors"
+                className="w-full h-11 text-base font-bold bg-gradient-to-r from-primary to-secondary text-white shadow-lg border-0 rounded-xl hover:from-primary/90 hover:to-secondary/90 transition-colors mt-2"
                 disabled={isAnalyzing}
               >
                 {isAnalyzing ? (
@@ -545,101 +577,82 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
               />
             )}
 
-            {/* Mic Level, Audio Quality, Monitor */}
-            <div className="border-t border-neutral-200 pt-6 w-full mt-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="flex items-center justify-center w-12 h-12 bg-neutral-100 rounded-lg mx-auto mb-3">
-                    <Mic className="text-neutral-600" />
-                  </div>
-                  <div className="text-sm text-black">Microphone Level</div>
-                  <div className="w-full bg-neutral-200 rounded-full h-2 mt-2 overflow-hidden">
-                    <div className={`bg-primary h-2 rounded-full transition-all duration-200 ${isRecording ? 'animate-mic-level' : ''}`}
-                      style={{ width: `${Math.min(100, (audioLevels[audioLevels.length - 1] || 0) / 2.55)}%` }}></div>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center w-12 h-12 bg-neutral-100 rounded-lg mx-auto mb-3">
-                    <Square className="text-neutral-600" />
-                  </div>
-                  <div className="text-sm text-black">Audio Quality</div>
-                  <div className="text-xs text-neutral-600 mt-1">
-                    {isRecording
-                      ? (audioLevels[audioLevels.length - 1] > 120 ? 'Excellent' : audioLevels[audioLevels.length - 1] > 60 ? 'Good' : 'Poor')
-                      : '—'}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center w-12 h-12 bg-neutral-100 rounded-lg mx-auto mb-3">
-                    <Headphones className="text-neutral-600" />
-                  </div>
-                  <div className="text-sm text-black">Monitor</div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="text-xs text-neutral-400 cursor-not-allowed mt-1 border border-neutral-200 rounded px-2 py-1 bg-neutral-100" disabled>Enable</button>
-                    </TooltipTrigger>
-                    <TooltipContent>Live monitoring coming soon!</TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
+            {/* Settings and Tips (new UI) */}
+            <div className="mt-4 w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full flex items-center gap-2 mb-2"
+                onClick={() => setShowSettings((v) => !v)}
+                aria-label="Show Recording Settings"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </Button>
+              {showSettings && (
+                <Card className="bg-muted/50 mb-2">
+                  <CardContent className="space-y-2 p-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs font-medium">Speech Topic</label>
+                        <Input
+                          placeholder="Enter your speech topic..."
+                          value={speechTopic}
+                          onChange={e => setSpeechTopic(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium flex items-center gap-2">
+                          Focus Area
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span tabIndex={0}><Info className="w-4 h-4 text-muted-foreground" /></span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Choose which area you want the AI to focus on in your speech.
+                            </TooltipContent>
+                          </Tooltip>
+                        </label>
+                        <select
+                          className="w-full border rounded px-2 py-1 text-xs"
+                          value={focusArea}
+                          onChange={e => setFocusArea(e.target.value)}
+                        >
+                          <option>Overall Performance</option>
+                          <option>Clarity</option>
+                          <option>Tone</option>
+                          <option>Filler Words</option>
+                        </select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              <Card className="bg-muted/50">
+                <CardHeader>
+                  <CardTitle className="text-xs">🧠 Recording Tips</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2"><Check className="w-4 h-4" /> Speak Naturally</div>
+                  <div className="flex items-center gap-2"><Check className="w-4 h-4" /> Stay 6–12 inches from Mic</div>
+                  <div className="flex items-center gap-2"><Check className="w-4 h-4" /> Minimize Background Noise</div>
+                  <div className="flex items-center gap-2"><Check className="w-4 h-4" /> Speak for 1–5 Minutes</div>
+                  <div className="flex items-center gap-2"><Check className="w-4 h-4" /> Look at the camera or a fixed point</div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Tips Section */}
-      <div className="mt-8 bg-neutral-50 rounded-lg p-6">
-        <h3 className="text-lg text-black mb-4">Recording Tips</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-start">
-            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
-              <Check className="text-xs text-neutral-600" />
-            </div>
-            <div>
-              <div className="text-sm text-black">Speak Naturally</div>
-              <div className="text-xs text-neutral-600">Use your normal speaking voice and pace</div>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
-              <Check className="text-xs text-neutral-600" />
-            </div>
-            <div>
-              <div className="text-sm text-black">Minimize Background Noise</div>
-              <div className="text-xs text-neutral-600">Find a quiet space for better analysis</div>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
-              <Check className="text-xs text-neutral-600" />
-            </div>
-            <div>
-              <div className="text-sm text-black">Stay 6-12 Inches from Mic</div>
-              <div className="text-xs text-neutral-600">Maintain consistent distance</div>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <div className="flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
-              <Check className="text-xs text-neutral-600" />
-            </div>
-            <div>
-              <div className="text-sm text-black">Speak for 1-5 Minutes</div>
-              <div className="text-xs text-neutral-600">Optimal length for analysis</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
 
-export default AudioRecorder;
-
-// Add custom keyframes for the mic glow and pulse
+export default AudioRecorder;// Add custom keyframes for the mic glow and pulse
 <style>{`
 @keyframes mic-glow {
-  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 0 rgba(139,92,246,0.15), 0 0 0 8px rgba(139,92,246,0.08); }
-  50% { opacity: 1; box-shadow: 0 0 0 8px rgba(139,92,246,0.25), 0 0 0 16px rgba(139,92,246,0.12); }
+  0%, 100% { opacity: 0.7; box-shadow: 0 0 0 0 rgba(139,92,246,0.25), 0 0 0 12px rgba(139,92,246,0.10); }
+  50% { opacity: 1; box-shadow: 0 0 0 12px rgba(139,92,246,0.35), 0 0 0 24px rgba(139,92,246,0.15); }
 }
 @keyframes mic-pulse {
   0%, 100% { transform: scale(1); }
@@ -648,3 +661,5 @@ export default AudioRecorder;
 .animate-mic-glow { animation: mic-glow 1.5s infinite; }
 .animate-mic-pulse { animation: mic-pulse 1.2s infinite; }
 `}</style>
+
+

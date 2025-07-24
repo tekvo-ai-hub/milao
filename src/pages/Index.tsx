@@ -1,29 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Mic, History, TrendingUp, Smartphone, LogOut, User, Upload, ChevronDown, Plus, Brain, FileText, Menu, Settings, Zap, Loader2, HelpCircle, MessageSquare, Copy } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Mic, History, LogOut, Settings, HelpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AudioRecorder from '@/components/AudioRecorder';
-import AudioUpload from '@/components/AudioUpload';
-import SpeechAnalysis from '@/components/SpeechAnalysis';
 import RecordingHistory from '@/components/RecordingHistory';
-import ProgressReport from '@/components/ProgressReport';
 import Auth from '@/components/Auth';
-import LLMStatus from '@/components/LLMStatus';
-import TextAnalytics from '@/components/TextAnalytics';
-import { AppSidebar } from '@/components/AppSidebar';
-import AdminSetup from '@/components/AdminSetup';
-import { analyzeSpeech, AnalysisResult, generateDynamicMainPoint } from '@/utils/speechAnalysisAPI';
+import { analyzeSpeech, AnalysisResult } from '@/utils/speechAnalysisAPI';
 import { analyzeAudioWithAssemblyAI } from '@/utils/assemblyAIService';
-import { analyzeWithPersonalizedFeedback, convertToLegacyFormat } from '@/utils/personalizedSpeechAnalysis';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { analyzeAudioWithAssemblyAIDirect } from '@/utils/directAssemblyAIService';
 
 interface RecordingData {
   id: string;
@@ -62,6 +49,7 @@ const Index = () => {
   const [checkingPreferences, setCheckingPreferences] = useState(false);
   const [forceShowApp, setForceShowApp] = useState(false);
   const { toast } = useToast();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Force show app after 8 seconds as safety net
   useEffect(() => {
@@ -555,7 +543,7 @@ const Index = () => {
             });
             
             // Fallback to direct AssemblyAI if Orato fails
-            const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+            const assemblyResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
             analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
             setTranscriptText(assemblyResult.transcript);
           }
@@ -569,14 +557,14 @@ const Index = () => {
           });
           
           // Use direct AssemblyAI for users without preferences
-          const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+          const assemblyResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
           analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
           setTranscriptText(assemblyResult.transcript);
         }
       } else {
         // Fallback for non-authenticated users - use direct AssemblyAI
         console.log('🔄 Non-authenticated user, using direct AssemblyAI...');
-        const assemblyResult = await analyzeAudioWithAssemblyAIDirect(audioBlob);
+        const assemblyResult = await analyzeAudioWithAssemblyAI(audioBlob, user?.id);
         analysis = convertAssemblyAIToAnalysisResult(assemblyResult, duration);
       }
       
@@ -584,6 +572,30 @@ const Index = () => {
       setCurrentAnalysis(analysis);
       setCurrentDuration(Math.floor(duration || 0));
       setCurrentAudioBlob(audioBlob);
+
+      // Always save the latest analysis to the database
+      if (user?.id) {
+        const fileName = `${user.id}/${Date.now()}-recording.webm`;
+        // Save audio to storage (optional, skip if not needed)
+        // const { data: uploadData, error: uploadError } = await supabase.storage
+        //   .from('audio-recordings')
+        //   .upload(fileName, audioBlob, { contentType: audioBlob.type });
+        // const { data: { publicUrl } } = supabase.storage.from('audio-recordings').getPublicUrl(fileName);
+        // Save to Supabase database
+        await supabase.from('speech_recordings').insert({
+          user_id: user.id,
+          title: `Recording - ${new Date().toLocaleDateString()}`,
+          duration: Math.floor(duration || 0),
+          overall_score: analysis.overall_score,
+          clarity_score: analysis.clarity_score,
+          pace: analysis.pace_analysis.words_per_minute,
+          filler_words_count: analysis.filler_words.count,
+          primary_tone: analysis.tone_analysis.primary_tone,
+          analysis_data: analysis as any,
+          // audio_url: publicUrl
+        });
+      }
+
       // Navigate to the new dashboard, passing analysis data via state
       navigate('/analysis-result', { state: { analysis, duration: Math.floor(duration || 0), audioBlob } });
     } catch (error) {
@@ -678,7 +690,7 @@ const Index = () => {
         });
       }
       
-      setAnalysisOpen(true);
+      // setAnalysisOpen(true); // Removed as per new_code
       
     } catch (error) {
       toast({
@@ -809,10 +821,10 @@ const Index = () => {
       
       setCurrentAnalysis(recording.analysis);
       setCurrentDuration(recording.duration);
-      setAnalysisOpen(true);
+      // setAnalysisOpen(true); // Removed as per new_code
       // Close other sections when viewing analysis
-      setHistoryOpen(false);
-      setProgressOpen(false);
+      // setHistoryOpen(false); // Removed as per new_code
+      // setProgressOpen(false); // Removed as per new_code
     }
   };
 
@@ -880,7 +892,7 @@ const Index = () => {
         setCurrentAnalysis(analysis);
         setCurrentDuration(recording.duration);
         setCurrentAudioBlob(audioData); // Add this line to provide audio for Text Analytics
-        setAnalysisOpen(true);
+        // setAnalysisOpen(true); // Removed as per new_code
         toast({
           title: "Re-evaluation Complete!",
           description: `Updated analysis - scored ${analysis.overall_score}/100`,
@@ -901,36 +913,63 @@ const Index = () => {
   };
 
   return (
-    <SidebarProvider>
-      <div className="w-full min-h-screen flex flex-col bg-gradient-to-br from-background via-accent/20 to-background">
-        {/* Minimal Navbar */}
-        <nav className="w-full flex items-center justify-between px-6 py-2 bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-20">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <img src="/milao_logo.png" alt="Milao Logo" className="w-24 h-24 rounded-xl object-contain p-1" />
+    <div className="w-full min-h-screen flex flex-col bg-gradient-to-br from-background via-accent/20 to-background pt-28">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-3">
+              <button onClick={() => navigate('/app')} className="focus:outline-none">
+                <img src="/milao_logo.png" alt="Milao Logo" className="w-16 h-16 object-contain" style={{ background: 'white', borderRadius: '1rem' }} />
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <Button variant="ghost" className="text-gray-700 font-medium" onClick={() => navigate('/app')}>Record Again</Button>
-            <Button variant="ghost" className={`text-gray-700 font-medium${window.location.pathname === '/history' ? ' font-bold text-purple-700 border-b-2 border-purple-700' : ''}`} onClick={() => navigate('/history')}>History</Button>
-            <Button variant="ghost" className="text-gray-700 font-medium" onClick={() => navigate('/analysis-result')}>Dashboard</Button>
-            <div className="relative group">
-              <Button variant="ghost" className="p-0 rounded-full w-10 h-10 flex items-center justify-center">
-                <img src={`https://api.dicebear.com/7.x/notionists/svg?scale=200&seed=${user?.id || 'user'}`} alt="Profile" className="w-8 h-8 rounded-full" />
-              </Button>
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                <div className="p-4 border-b">
-                  <div className="font-semibold text-gray-900">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}</div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
+            {/* Navigation */}
+            <div className="hidden sm:flex items-center space-x-4">
+              <Button variant="ghost" className="text-gray-700 font-medium flex items-center gap-1 px-2" onClick={() => navigate('/app')}>Record Again</Button>
+              <Button variant="ghost" className="text-gray-700 font-medium flex items-center gap-1 px-2" onClick={() => navigate('/history')}>History</Button>
+              <Button variant="ghost" className="text-gray-700 font-medium flex items-center gap-1 px-2" onClick={() => navigate('/analysis-result')}>Dashboard</Button>
+              <div className="relative group">
+                <Button variant="ghost" className="p-0 rounded-full w-9 h-9 flex items-center justify-center">
+                  <img src={`https://api.dicebear.com/7.x/notionists/svg?scale=200&seed=${user?.id || 'user'}`} alt="Profile" className="w-7 h-7 rounded-full" />
+                </Button>
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                  <div className="p-4 border-b">
+                    <div className="font-semibold text-gray-900">{user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}</div>
+                    <div className="text-xs text-gray-500">{user?.email}</div>
+                  </div>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1" onClick={() => navigate('/preferences')}><Settings className="w-4 h-4 mr-1" />Settings</Button>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1" onClick={signOut}><LogOut className="w-4 h-4 mr-1" />Logout</Button>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1" onClick={() => window.open('/USER_GUIDE.md', '_blank')}><HelpCircle className="w-4 h-4 mr-1" />Help</Button>
                 </div>
-                <Button variant="ghost" className="w-full justify-start text-gray-700" onClick={() => navigate('/preferences')}><Settings className="w-4 h-4 mr-2" />Settings</Button>
-                <Button variant="ghost" className="w-full justify-start text-gray-700" onClick={signOut}><LogOut className="w-4 h-4 mr-2" />Logout</Button>
-                <Button variant="ghost" className="w-full justify-start text-gray-700" onClick={() => window.open('/USER_GUIDE.md', '_blank')}><HelpCircle className="w-4 h-4 mr-2" />Help</Button>
               </div>
             </div>
+            {/* Mobile Burger */}
+            <div className="sm:hidden flex items-center">
+              <button
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:bg-gray-200 focus:outline-none"
+                aria-label="Open menu"
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className="absolute top-14 right-4 w-48 bg-white rounded-xl shadow-lg border z-50 flex flex-col gap-1 py-2 animate-fade-in">
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 px-2 py-2" onClick={() => {navigate('/app'); setMenuOpen(false);}}>Record Again</Button>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 px-2 py-2" onClick={() => {navigate('/history'); setMenuOpen(false);}}>History</Button>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 px-2 py-2" onClick={() => {navigate('/analysis-result'); setMenuOpen(false);}}>Dashboard</Button>
+                  <div className="border-t my-2" />
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 py-2" onClick={() => {navigate('/preferences'); setMenuOpen(false);}}><Settings className="w-4 h-4 mr-1" />Settings</Button>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 py-2" onClick={signOut}><LogOut className="w-4 h-4 mr-1" />Logout</Button>
+                  <Button variant="ghost" className="w-full justify-start text-gray-700 flex items-center gap-1 py-2" onClick={() => {window.open('/USER_GUIDE.md', '_blank'); setMenuOpen(false);}}><HelpCircle className="w-4 h-4 mr-1" />Help</Button>
+                </div>
+              )}
+            </div>
           </div>
-        </nav>
-        <main className="flex-1">
+        </div>
+      </header>
+      <main className="flex-1">
           <div className="container mx-auto px-4 py-6 max-w-4xl">
             {/* Recording Interface - show directly, no accordion or tips */}
             <AudioRecorder
@@ -974,7 +1013,6 @@ const Index = () => {
           </div>
         </footer>
       </div>
-    </SidebarProvider>
   );
 };
 
