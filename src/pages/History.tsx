@@ -49,6 +49,9 @@ const History: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -110,6 +113,25 @@ const History: React.FC = () => {
     }
     setDeleting(false);
     setDeleteId(null);
+  };
+
+  const handleEdit = (rec: Recording) => {
+    setEditId(rec.id);
+    setEditTitle(rec.title || '');
+  };
+
+  const handleEditSave = async () => {
+    if (!editId) return;
+    setEditing(true);
+    const { error } = await supabase.from('speech_recordings').update({ title: editTitle }).eq('id', editId).eq('user_id', user.id);
+    if (error) {
+      toast({ title: 'Edit failed', description: error.message, variant: 'destructive' });
+    } else {
+      setRecordings((prev) => prev.map((r) => r.id === editId ? { ...r, title: editTitle } : r));
+      toast({ title: 'Recording updated', description: 'The title was updated.' });
+    }
+    setEditing(false);
+    setEditId(null);
   };
 
   return (
@@ -176,7 +198,7 @@ const History: React.FC = () => {
         <p className="text-gray-500 mb-6 text-sm sm:text-base">Review your past speeches and track your improvement journey.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {statCards.map((stat) => (
-            <Card key={stat.label} className={`rounded-2xl shadow-md ${stat.bg}`}>
+            <Card key={stat.label} className={`rounded-2xl border border-primary/20 ${stat.bg}`}>
               <CardContent className="flex items-center gap-4 py-6 px-4">
                 <div className="p-3 rounded-xl bg-white/80 shadow-inner">{stat.icon}</div>
                 <div>
@@ -217,8 +239,7 @@ const History: React.FC = () => {
           ) : paginated.map((rec) => (
             <Card
               key={rec.id}
-              className="rounded-2xl shadow-xl p-6 flex flex-col md:flex-row items-center md:items-stretch gap-0 md:gap-6 w-full min-w-[320px] bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60 transition"
-              style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}
+              className="rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-stretch gap-0 md:gap-6 w-full min-w-[320px] bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-primary/20"
             >
               <CardContent className="flex-1 flex flex-col md:flex-row items-start md:items-center gap-4 w-full p-0">
                 <div className="flex-1 min-w-0">
@@ -279,8 +300,8 @@ const History: React.FC = () => {
                     <BarChart2 className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
-                <div className="flex flex-row md:flex-col gap-2 md:justify-center md:items-end" onClick={e => e.stopPropagation()}>
-                  <Button size="icon" variant="outline" className="rounded-full" disabled><Edit className="w-5 h-5" /></Button>
+                <div className="flex flex-row md:flex-col gap-2 md:justify-center md:items-end">
+                  <Button size="icon" variant="outline" className="rounded-full" onClick={() => handleEdit(rec)} disabled={deleting}><Edit className="w-5 h-5" /></Button>
                   <Button size="icon" variant="destructive" className="rounded-full" onClick={() => setDeleteId(rec.id)} disabled={deleting}><Trash2 className="w-5 h-5" /></Button>
                 </div>
               </CardContent>
@@ -344,6 +365,22 @@ const History: React.FC = () => {
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? <span className="animate-spin mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full inline-block align-middle"></span> : null}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Edit Title Dialog */}
+      <Dialog open={!!editId} onOpenChange={open => !open && setEditId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Recording Title</DialogTitle>
+          </DialogHeader>
+          <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="mb-4" autoFocus />
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setEditId(null)} disabled={editing}>Cancel</Button>
+            <Button variant="default" onClick={handleEditSave} disabled={editing || !editTitle.trim()}>
+              {editing ? <span className="animate-spin mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full inline-block align-middle"></span> : null}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

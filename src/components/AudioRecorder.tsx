@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Play, Pause, Square, Trash, Headphones, Check, Info, Settings } from 'lucide-react';
+import { Mic, MicOff, Play, Pause, Square, Trash, Headphones, Check, Info, Settings, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -484,24 +484,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
               ))}
             </div>
 
-            {/* File Upload Option */}
-            <div className="flex justify-center mb-2">
-              <label htmlFor="audio-upload" className="inline-block cursor-pointer bg-accent text-accent-foreground px-4 py-2 rounded-lg font-medium text-sm shadow hover:bg-accent/80 transition-colors">
-                Upload Audio File
-                <Input id="audio-upload" type="file" accept="audio/*" className="hidden" onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    // Get duration
-                    const audio = document.createElement('audio');
-                    audio.src = URL.createObjectURL(file);
-                    audio.onloadedmetadata = () => {
-                      setAudioBlob(file);
-                      setDuration(Math.floor(audio.duration));
-                    };
-                  }
-                }} />
-              </label>
-            </div>
             {/* Record/Playback/Stop/Clear Buttons - horizontal row at bottom with small mic */}
             <div className="flex items-center gap-3 mt-0 mb-4">
               <Button
@@ -579,16 +561,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
 
             {/* Settings and Tips (new UI) */}
             <div className="mt-4 w-full">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full flex items-center gap-2 mb-2"
-                onClick={() => setShowSettings((v) => !v)}
-                aria-label="Show Recording Settings"
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-              </Button>
               {showSettings && (
                 <Card className="bg-muted/50 mb-2">
                   <CardContent className="space-y-2 p-2">
@@ -640,6 +612,25 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
                   <div className="flex items-center gap-2"><Check className="w-4 h-4" /> Look at the camera or a fixed point</div>
                 </CardContent>
               </Card>
+              {/* Settings and Upload Audio File - left aligned row below tips */}
+              <div className="flex items-center gap-3 mt-4">
+                <label htmlFor="audio-upload" className="inline-block cursor-pointer rounded-full flex items-center gap-2 border border-input bg-background px-4 py-2 text-sm font-medium shadow hover:bg-accent/80 transition-colors">
+                  <Upload className="w-4 h-4 mr-1" />
+                  Upload Audio File
+                  <Input id="audio-upload" type="file" accept="audio/*" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Get duration
+                      const audio = document.createElement('audio');
+                      audio.src = URL.createObjectURL(file);
+                      audio.onloadedmetadata = () => {
+                        setAudioBlob(file);
+                        setDuration(Math.floor(audio.duration));
+                      };
+                    }
+                  }} />
+                </label>
+              </div>
             </div>
           </div>
         </CardContent>
