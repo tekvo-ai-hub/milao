@@ -443,14 +443,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
             {/* Mic Icon - large, centered above status/timer */}
             <div className="flex justify-center mt-6 mb-2 relative">
               {isRecording && (
-                <span className="absolute w-20 h-20 rounded-full animate-mic-glow bg-gradient-to-br from-primary/40 via-primary/10 to-primary/0 blur-lg z-0" style={{ left: 0, top: 0 }} />
+                <span className="absolute w-24 h-24 rounded-full animate-mic-glow bg-gradient-to-br from-primary/40 via-primary/10 to-primary/0 blur-lg z-0" style={{ left: '-12px', top: '-12px' }} />
               )}
               <Button
                 onClick={isRecording ? stopRecording : startRecording}
                 size="icon"
-                className={`bg-neutral-500 hover:bg-primary text-white rounded-full w-20 h-20 flex items-center justify-center mx-auto transition-colors text-4xl relative z-10 ${isRecording ? 'bg-primary animate-mic-pulse' : ''}`}
+                className={`bg-primary hover:bg-primary/80 active:bg-primary/90 text-white rounded-full w-20 h-20 flex items-center justify-center mx-auto transition-colors text-4xl relative z-10 shadow-lg ${isRecording ? 'animate-mic-pulse ring-4 ring-primary/30' : ''}`}
                 disabled={isAnalyzing}
                 aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
+                style={{ boxShadow: isRecording ? '0 0 0 8px rgba(139,92,246,0.15)' : undefined }}
               >
                 {isRecording ? <Square className="text-4xl" /> : <Mic className="text-4xl" />}
               </Button>
@@ -562,7 +563,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
             {/* Settings and Tips (new UI) */}
             <div className="mt-4 w-full">
               {showSettings && (
-                <Card className="bg-muted/50 mb-2">
+                <Card className="bg-muted/50 mb-2 border border-primary/20">
                   <CardContent className="space-y-2 p-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -600,7 +601,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isAn
                   </CardContent>
                 </Card>
               )}
-              <Card className="bg-muted/50">
+              <Card className="bg-muted/50 border border-primary/20">
                 <CardHeader>
                   <CardTitle className="text-xs">🧠 Recording Tips</CardTitle>
                 </CardHeader>
