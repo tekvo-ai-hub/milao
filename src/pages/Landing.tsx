@@ -50,7 +50,7 @@ const Landing = () => {
             {/* Logo - always left */}
             <div className="flex items-center space-x-3">
               <button onClick={() => navigate('/')} className="focus:outline-none">
-                <img src="/milao_logo1.png" alt="Milao Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-white rounded-lg p-1" />
+                <img src="/milao_logo.png" alt="Milao Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-white rounded-lg p-1" />
               </button>
             </div>
             {/* Desktop Nav */}

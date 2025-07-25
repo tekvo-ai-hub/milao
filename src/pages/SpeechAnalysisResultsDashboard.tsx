@@ -173,6 +173,14 @@ const SpeechAnalysisResultsDashboard: React.FC = () => {
   // Overall score: use overall_score if present, else confidence, else mock
   const realOverallScore = analysis?.overall_score ?? (analysis?.confidence ? Math.round(analysis.confidence * 100) : overallScore);
 
+  // Define filler words list once
+  const FILLER_WORDS = ['um', 'uh', 'ah', 'er', 'like', 'you know', 'basically', 'actually', 'literally', 'sort of', 'kind of'];
+
+  // Unified filler words array from analysis.words
+  const fillerWordsList = analysis?.words && Array.isArray(analysis.words)
+    ? analysis.words.filter((w: any) => FILLER_WORDS.includes(w.text.toLowerCase()))
+    : [];
+
   // Key metrics
   const realKeyMetrics = analysis
     ? [
@@ -185,7 +193,6 @@ const SpeechAnalysisResultsDashboard: React.FC = () => {
         {
           title: 'Pace',
           score: (() => {
-            // Try different ways to get word count
             let wordCount = 0;
             if (analysis.words && Array.isArray(analysis.words)) {
               wordCount = analysis.words.length;
@@ -216,38 +223,15 @@ const SpeechAnalysisResultsDashboard: React.FC = () => {
         },
         {
           title: 'Filler Words',
-          score: (() => {
-            // Improved filler word detection
-            const fillerWords = ['um', 'uh', 'ah', 'er', 'like', 'you know', 'basically', 'actually', 'literally', 'sort of', 'kind of'];
-            let count = 0;
-            
-            if (analysis.words && Array.isArray(analysis.words)) {
-              // Check words array
-              count = analysis.words.filter((w: any) => 
-                fillerWords.includes(w.text.toLowerCase())
-              ).length;
-            } else if (analysis.transcript) {
-              // Fallback to transcript search
-              const transcriptLower = analysis.transcript.toLowerCase();
-              count = fillerWords.filter(word => transcriptLower.includes(word)).length;
-            }
-            return count;
-          })(),
+          score: fillerWordsList.length,
           desc: 'Detected filler words',
           icon: <AlertTriangle className="w-5 h-5 text-orange-500" />,
         },
       ]
     : keyMetrics;
 
-  // Filler words with timestamps
-  const realFillerWords = analysis?.words
-    ? analysis.words
-        .filter((w: any) => {
-          const fillerWords = ['um', 'uh', 'ah', 'er', 'like', 'you know', 'basically', 'actually', 'literally', 'sort of', 'kind of'];
-          return fillerWords.includes(w.text.toLowerCase());
-        })
-        .map((w: any) => ({ time: formatTime(w.start / 1000), word: w.text }))
-    : fillerWords;
+  // Filler words with timestamps for overview
+  const realFillerWords = fillerWordsList.map((w: any) => ({ time: formatTime(w.start / 1000), word: w.text }));
 
   // Transcript
   const transcript = analysis?.transcript || '';
@@ -286,47 +270,57 @@ const SpeechAnalysisResultsDashboard: React.FC = () => {
   // Section details mapping
   const sectionDetails: Record<string, React.ReactNode> = {
     overview: (
-      <div>
+      <div className="flex flex-col items-center justify-center rounded-2xl shadow-xl p-8 text-center bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60" style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}>
         <div className="text-lg font-bold mb-2">Overview</div>
-        <div className="text-sm text-muted-foreground">Filler words detected: {realFillerWords.length}</div>
-        <div className="text-xs text-gray-500 mt-1">
+        <div className="text-base font-semibold text-primary mb-1">Filler words detected: {realFillerWords.length}</div>
+        <div className="text-sm text-gray-500 mt-1 bg-gray-100/60 rounded-lg px-3 py-2 inline-block shadow-sm">
           {realFillerWords.length > 0
             ? realFillerWords.slice(0, 5).map(fw => fw.word).join(', ')
-            : 'None detected'}
+            : <span className="italic text-gray-400">None detected</span>}
         </div>
       </div>
     ),
     transcript: (
-      <div>
-        <div className="text-lg font-bold mb-2">Transcript</div>
-        <div className="text-sm text-muted-foreground mb-2">{analysis?.words?.length || (analysis?.transcript ? analysis.transcript.split(' ').length : 0)} words</div>
-        <div className="whitespace-pre-line break-words text-base text-gray-900 bg-white rounded-lg p-4 border max-h-96 overflow-y-auto shadow-inner">
-          {transcript}
+      <div className="rounded-2xl shadow-xl p-8 min-h-[120px] flex items-center justify-center bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60" style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}>
+        <div>
+          <div className="text-lg font-bold mb-2">Transcript</div>
+          <div className="text-sm text-muted-foreground mb-2">{analysis?.words?.length || (analysis?.transcript ? analysis.transcript.split(' ').length : 0)} words</div>
+          <div className="whitespace-pre-line break-words text-base text-gray-900 bg-white rounded-lg p-4 border max-h-96 overflow-y-auto shadow-inner">
+            {transcript}
+          </div>
         </div>
       </div>
     ),
     sentiment: (
-      <div>
-        <div className="text-lg font-bold mb-2">Sentiment</div>
-        <div className="text-sm text-muted-foreground">{sentiment?.sentiment || 'N/A'}</div>
+      <div className="rounded-2xl shadow-xl p-8 min-h-[120px] flex items-center justify-center bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60" style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}>
+        <div>
+          <div className="text-lg font-bold mb-2">Sentiment</div>
+          <div className="text-sm text-muted-foreground">{sentiment?.sentiment || 'N/A'}</div>
+        </div>
       </div>
     ),
     entities: (
-      <div>
-        <div className="text-lg font-bold mb-2">Entities</div>
-        <div className="text-sm text-muted-foreground">{entities.length} entities</div>
+      <div className="rounded-2xl shadow-xl p-8 min-h-[120px] flex items-center justify-center bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60" style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}>
+        <div>
+          <div className="text-lg font-bold mb-2">Entities</div>
+          <div className="text-sm text-muted-foreground">{entities.length} entities</div>
+        </div>
       </div>
     ),
     safety: (
-      <div>
-        <div className="text-lg font-bold mb-2">Content Safety</div>
-        <div className="text-sm text-muted-foreground">{Object.keys(contentSafety).length > 0 ? `${Object.keys(contentSafety).length} flags` : 'Clean'}</div>
+      <div className="rounded-2xl shadow-xl p-8 min-h-[120px] flex items-center justify-center bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60" style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}>
+        <div>
+          <div className="text-lg font-bold mb-2">Content Safety</div>
+          <div className="text-sm text-muted-foreground">{Object.keys(contentSafety).length > 0 ? `${Object.keys(contentSafety).length} flags` : 'Clean'}</div>
+        </div>
       </div>
     ),
     details: (
-      <div>
-        <div className="text-lg font-bold mb-2">Details</div>
-        <div className="text-sm text-muted-foreground">{speakers.length > 0 ? speakers.length : 1} speaker(s)</div>
+      <div className="rounded-2xl shadow-xl p-8 min-h-[120px] flex items-center justify-center bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60" style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}>
+        <div>
+          <div className="text-lg font-bold mb-2">Details</div>
+          <div className="text-sm text-muted-foreground">{speakers.length > 0 ? speakers.length : 1} speaker(s)</div>
+        </div>
       </div>
     ),
   };
@@ -526,9 +520,7 @@ const SpeechAnalysisResultsDashboard: React.FC = () => {
           </div>
           {/* Details Card for selected section */}
           <div className="w-full md:w-2/3 flex flex-col gap-6">
-            <Card className="rounded-lg border shadow p-4 min-h-[120px] flex items-center justify-center">
-              {sectionDetails[selectedSection]}
-            </Card>
+            {sectionDetails[selectedSection]}
           </div>
         </div>
       </div>

@@ -10,58 +10,24 @@ import { Mic, Gauge, Smile, AlertTriangle, Edit, Trash2, BarChart2, TrendingUp, 
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { LogOut, HelpCircle, Settings } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
-// Dummy data and types (replace with Supabase integration)
-type Recording = {
+// Real recording type
+interface Recording {
   id: string;
   title: string;
-  date: string;
-  time: string;
-  duration: string;
-  tag: string;
-  metrics: { clarity: number; pace: number; confidence: number; fillerWords: number; };
-  overall: number;
-};
-
-const dummyRecordings: Recording[] = [
-  {
-    id: '1',
-    title: 'Product Launch Presentation',
-    date: 'Today',
-    time: '2:30 PM',
-    duration: '3:45',
-    tag: 'Presentation',
-    metrics: { clarity: 85, pace: 92, confidence: 81, fillerWords: 7 },
-    overall: 87,
-  },
-  {
-    id: '2',
-    title: 'Interview Practice Session',
-    date: 'Yesterday',
-    time: '11:00 AM',
-    duration: '4:10',
-    tag: 'Interview',
-    metrics: { clarity: 72, pace: 65, confidence: 78, fillerWords: 15 },
-    overall: 74,
-  },
-  {
-    id: '3',
-    title: 'Storytelling Practice',
-    date: '2 days ago',
-    time: '5:20 PM',
-    duration: '2:55',
-    tag: 'Practice',
-    metrics: { clarity: 91, pace: 88, confidence: 93, fillerWords: 3 },
-    overall: 91,
-  },
-];
-
-const statCards = [
-  { label: 'Total Recordings', value: 47, icon: <Mic className="w-6 h-6 text-purple-600" />, bg: 'bg-purple-50' },
-  { label: 'Average Score', value: '82%', icon: <Gauge className="w-6 h-6 text-blue-600" />, bg: 'bg-blue-50' },
-  { label: 'Practice Time', value: '24h', icon: <Clock className="w-6 h-6 text-green-600" />, bg: 'bg-green-50' },
-  { label: 'Improvement', value: '+15%', icon: <TrendingUp className="w-6 h-6 text-pink-600" />, bg: 'bg-pink-50' },
-];
+  created_at: string;
+  duration: number;
+  overall_score: number | null;
+  clarity_score: number | null;
+  pace: number | null;
+  filler_words_count: number | null;
+  primary_tone: string | null;
+  analysis_data: any;
+  audio_url?: string | null;
+}
 
 const categories = [
   { value: 'all', label: 'All Categories' },
@@ -70,6 +36,8 @@ const categories = [
   { value: 'practice', label: 'Practice' },
 ];
 
+const PAGE_SIZE = 10;
+
 const History: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -77,12 +45,72 @@ const History: React.FC = () => {
   const [category, setCategory] = useState('all');
   const [page, setPage] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // TODO: Replace with real Supabase data fetching
-  const filtered = dummyRecordings.filter(r =>
-    (category === 'all' || r.tag.toLowerCase() === category) &&
-    (search === '' || r.title.toLowerCase().includes(search.toLowerCase()))
-  );
+  useEffect(() => {
+    if (!user) {
+      setRecordings([]);
+      return;
+    }
+    setLoading(true);
+    supabase
+      .from('speech_recordings')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          setRecordings([]);
+        } else {
+          setRecordings(data || []);
+        }
+        setLoading(false);
+      });
+  }, [user]);
+
+  // Filter by search and category
+  const filtered = recordings.filter(r => {
+    const matchesCategory = category === 'all' || (r.primary_tone?.toLowerCase() === category);
+    const matchesSearch = search === '' || (r.title?.toLowerCase().includes(search.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Format helpers
+  const formatDate = (date: string) => new Date(date).toLocaleDateString();
+  const formatTime = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const statCards = [
+    { label: 'Total Recordings', value: recordings.length, icon: <Mic className="w-6 h-6 text-purple-600" />, bg: 'bg-purple-50' },
+    { label: 'Average Score', value: `${recordings.reduce((sum, r) => sum + (r.overall_score || 0), 0) / recordings.length || 0}%`, icon: <Gauge className="w-6 h-6 text-blue-600" />, bg: 'bg-blue-50' },
+    { label: 'Practice Time', value: `${recordings.reduce((sum, r) => sum + r.duration, 0)}s`, icon: <Clock className="w-6 h-6 text-green-600" />, bg: 'bg-green-50' },
+    { label: 'Improvement', value: `${recordings.reduce((sum, r) => sum + (r.overall_score || 0), 0) / recordings.length - 80 || 0}%`, icon: <TrendingUp className="w-6 h-6 text-pink-600" />, bg: 'bg-pink-50' },
+  ];
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    const { error } = await supabase.from('speech_recordings').delete().eq('id', deleteId).eq('user_id', user.id);
+    if (error) {
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      setRecordings((prev) => prev.filter((r) => r.id !== deleteId));
+      toast({ title: 'Recording deleted', description: 'The recording was removed from your history.' });
+    }
+    setDeleting(false);
+    setDeleteId(null);
+  };
 
   return (
     <div className="w-full min-h-screen flex flex-col bg-gradient-to-br from-background via-accent/20 to-background pt-28">
@@ -182,32 +210,78 @@ const History: React.FC = () => {
 
         {/* Recording List */}
         <div className="space-y-6 mb-8 w-full overflow-x-auto">
-          {filtered.map((rec) => (
-            <Card key={rec.id} className="rounded-2xl shadow-lg p-0 flex flex-col md:flex-row items-center md:items-stretch gap-0 md:gap-6 w-full min-w-[320px]">
-              <CardContent className="flex-1 flex flex-col md:flex-row items-center md:items-center gap-4 py-6 px-4 w-full">
+          {loading ? (
+            <div className="text-center text-gray-500 py-8">Loading recordings...</div>
+          ) : paginated.length === 0 ? (
+            <div className="text-center text-gray-400 py-8">No recordings found.</div>
+          ) : paginated.map((rec) => (
+            <Card
+              key={rec.id}
+              className="rounded-2xl shadow-xl p-6 flex flex-col md:flex-row items-center md:items-stretch gap-0 md:gap-6 w-full min-w-[320px] bg-gradient-to-br from-white/80 via-blue-50/60 to-white/60 backdrop-blur-md border border-white/60 transition"
+              style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.10)' }}
+            >
+              <CardContent className="flex-1 flex flex-col md:flex-row items-start md:items-center gap-4 w-full p-0">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-base sm:text-lg font-bold truncate">{rec.title}</h2>
-                    <Badge variant="secondary" className="ml-2 capitalize">{rec.tag}</Badge>
+                    <button
+                      className="text-base sm:text-lg font-bold truncate bg-primary/10 hover:bg-primary/20 transition rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      onClick={() => navigate('/analysis-result', { state: { analysis: rec.analysis_data, duration: rec.duration, audioUrl: rec.audio_url, created_at: rec.created_at, title: rec.title } })}
+                    >
+                      {rec.title || 'Untitled'}
+                    </button>
+                    <Badge variant="secondary" className="ml-2 capitalize">{rec.primary_tone || 'N/A'}</Badge>
                   </div>
                   <div className="text-xs text-gray-500 mb-2 flex gap-3 flex-wrap">
-                    <span>{rec.date}, {rec.time}</span>
-                    <span>• {rec.duration}</span>
+                    <span>{formatDate(rec.created_at)}, {formatTime(rec.created_at)}</span>
+                    <span>• {formatDuration(rec.duration)}</span>
                   </div>
                   <div className="flex gap-2 sm:gap-4 mb-2 flex-wrap">
-                    <div className="flex items-center gap-1 text-green-600"><Mic className="w-4 h-4" />{rec.metrics.clarity}%</div>
-                    <div className="flex items-center gap-1 text-blue-600"><Gauge className="w-4 h-4" />{rec.metrics.pace}%</div>
-                    <div className="flex items-center gap-1 text-purple-600"><Smile className="w-4 h-4" />{rec.metrics.confidence}%</div>
-                    <div className="flex items-center gap-1 text-red-600"><AlertTriangle className="w-4 h-4" />{rec.metrics.fillerWords}</div>
+                    {/* Clarity (confidence) */}
+                    <div className="flex items-center gap-1 text-green-600">
+                      <Mic className="w-4 h-4" />
+                      {typeof rec.analysis_data?.confidence === 'number'
+                        ? `${Math.round(rec.analysis_data.confidence * 100)}`
+                        : <span className="text-gray-400">N/A</span>}
+                    </div>
+                    {/* Pace (WPM) */}
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <Gauge className="w-4 h-4" />
+                      {(() => {
+                        let wordCount = 0;
+                        if (rec.analysis_data?.words && Array.isArray(rec.analysis_data.words)) {
+                          wordCount = rec.analysis_data.words.length;
+                        } else if (rec.analysis_data?.transcript) {
+                          wordCount = rec.analysis_data.transcript.split(' ').length;
+                        }
+                        const mins = (rec.duration || 0) / 60;
+                        return mins > 0 ? `${Math.round(wordCount / mins)}` : <span className="text-gray-400">N/A</span>;
+                      })()}
+                    </div>
+                    {/* Sentiment */}
+                    <div className="flex items-center gap-1 text-purple-600">
+                      <Smile className="w-4 h-4" />
+                      {rec.analysis_data?.sentiment?.sentiment
+                        ? rec.analysis_data.sentiment.sentiment
+                        : <span className="text-gray-400">N/A</span>}
+                    </div>
+                    {/* Filler Words */}
+                    <div className="flex items-center gap-1 text-red-600">
+                      <AlertTriangle className="w-4 h-4" />
+                      {rec.analysis_data?.words && Array.isArray(rec.analysis_data.words)
+                        ? rec.analysis_data.words.filter((w: any) => [
+                            'um', 'uh', 'ah', 'er', 'like', 'you know', 'basically', 'actually', 'literally', 'sort of', 'kind of'
+                          ].includes(w.text.toLowerCase())).length
+                        : <span className="text-gray-400">N/A</span>}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm font-semibold">{rec.overall}% Overall</span>
+                    <span className="text-xs sm:text-sm font-semibold">{rec.overall_score ?? 'N/A'}% Overall</span>
                     <BarChart2 className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
-                <div className="flex flex-row md:flex-col gap-2 md:justify-center md:items-end">
-                  <Button size="icon" variant="outline" className="rounded-full"><Edit className="w-5 h-5" /></Button>
-                  <Button size="icon" variant="destructive" className="rounded-full"><Trash2 className="w-5 h-5" /></Button>
+                <div className="flex flex-row md:flex-col gap-2 md:justify-center md:items-end" onClick={e => e.stopPropagation()}>
+                  <Button size="icon" variant="outline" className="rounded-full" disabled><Edit className="w-5 h-5" /></Button>
+                  <Button size="icon" variant="destructive" className="rounded-full" onClick={() => setDeleteId(rec.id)} disabled={deleting}><Trash2 className="w-5 h-5" /></Button>
                 </div>
               </CardContent>
             </Card>
@@ -215,22 +289,30 @@ const History: React.FC = () => {
         </div>
 
         {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center sm:justify-end gap-4 mt-4 w-full">
-          <span className="text-gray-500 text-xs sm:text-sm sm:order-2 sm:ml-4">Showing {filtered.length} of 47 recordings</span>
+        <div className="flex flex-col items-center justify-center gap-4 mt-4 w-full">
+          <span className="text-gray-500 text-xs sm:text-sm sm:order-2 sm:ml-4">Showing {paginated.length} of {filtered.length} recordings (Page {page} of {totalPages})</span>
           <Pagination className="sm:order-3">
-            <PaginationContent>
+            <PaginationContent className="gap-x-2 flex-nowrap">
               <PaginationItem>
-                <PaginationLink onClick={() => setPage(p => Math.max(1, p - 1))} isActive={page === 1}>
-                  <ChevronLeft className="w-4 h-4" /> Previous
+                <PaginationLink
+                  onClick={page === 1 ? undefined : () => setPage(page - 1)}
+                  isActive={false}
+                  className={(page === 1 ? 'opacity-50 pointer-events-none ' : '') + 'mr-4'}
+                >
+                  <ChevronLeft className="w-4 h-4" /> Prev
                 </PaginationLink>
               </PaginationItem>
-              {[1, 2, 3].map(num => (
-                <PaginationItem key={num}>
-                  <PaginationLink isActive={page === num} onClick={() => setPage(num)}>{num}</PaginationLink>
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <PaginationItem key={i}>
+                  <PaginationLink isActive={page === i + 1} onClick={() => setPage(i + 1)}>{i + 1}</PaginationLink>
                 </PaginationItem>
               ))}
               <PaginationItem>
-                <PaginationLink onClick={() => setPage(p => Math.min(3, p + 1))} isActive={page === 3}>
+                <PaginationLink
+                  onClick={page === totalPages ? undefined : () => setPage(page + 1)}
+                  isActive={false}
+                  className={(page === totalPages ? 'opacity-50 pointer-events-none ' : '') + 'ml-4'}
+                >
                   Next <ChevronRight className="w-4 h-4" />
                 </PaginationLink>
               </PaginationItem>
@@ -250,6 +332,22 @@ const History: React.FC = () => {
           <p className="text-gray-500 text-xs sm:text-sm font-medium">© 2024 Milao. All rights reserved.</p>
         </div>
       </footer>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteId} onOpenChange={open => !open && setDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Recording?</DialogTitle>
+          </DialogHeader>
+          <div>Are you sure you want to delete this recording? This action cannot be undone.</div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteId(null)} disabled={deleting}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? <span className="animate-spin mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full inline-block align-middle"></span> : null}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
